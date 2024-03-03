@@ -1,0 +1,27 @@
+---
+# name: ansible-role-certificates
+# file: defaults/main.yml
+
+# the source hostname where certificates are fetched from
+certificates_host: "dantooine"
+
+# ca certificates to install on remote hosts
+certificates_ca_certs:
+  - name: "mauer-root-ca.pem"
+    src: "/etc/pki/ca/mauer/pub/root-ca.pem"
+    url: "https://pki.jonas-mauer.de/root-ca.pem"
+    dest: "{{ certificates_ca_dest }}/mauer-root-ca.pem"
+  - name: "mauer-intermediate-ca.pem"
+    src: "/etc/pki/ca/mauer/pub/intermediate-ca.pem"
+    url: "https://pki.jonas-mauer.de/intermediate-ca.pem"
+    dest: "{{ certificates_ca_dest }}/mauer-intermediate-ca.pem"
+  - name: "mauer-component-ca.pem"
+    src: "/etc/pki/ca/mauer/pub/component-ca.pem"
+    url: "https://pki.jonas-mauer.de/component-ca.pem"
+    dest: "{{ certificates_ca_dest }}/mauer-component-ca.pem"
+  - name: "mauer-identity-ca.pem"
+    src: "/etc/pki/ca/mauer/pub/identity-ca.pem"
+    url: "https://pki.jonas-mauer.de/identity-ca.pem"
+    dest: "{{ certificates_ca_dest }}/mauer-identity-ca.pem"
+
+certificates_certs: []

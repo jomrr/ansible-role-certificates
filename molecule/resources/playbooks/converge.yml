@@ -1,0 +1,8 @@
+---
+# role: ansible-role-certificates
+# file: molecule/resources/playbooks/converge.yml
+
+- name: "PLAYBOOK | Converge"
+  hosts: all,!host-certificates
+  roles:
+    - role: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"

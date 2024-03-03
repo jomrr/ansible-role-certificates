@@ -1,0 +1,19 @@
+---
+# role: ansible-role-certificates
+# file: molecule/resources/playbooks/verify.yml
+
+- name: "PLAYBOOK | Verify"
+  hosts: all,!host-certificates
+  gather_facts: false
+  tasks:
+    - name: "Fetch trust list"
+      ansible.builtin.command:
+        cmd: "trust list"
+      changed_when: false
+      register: _trust_list
+
+    - name: "Assert true"
+      ansible.builtin.assert:
+        that: "'Example Root CA' in _trust_list.stdout"
+        fail_msg: "Example Root CA not in trust list"
+        success_msg: "Yee-ha! Example Root CA in trust list"

@@ -1,0 +1,58 @@
+---
+# name: ansible-role-certificates
+# file: tasks/main.yml
+
+- name: "Debug distribution and os_family"
+  ansible.builtin.debug:
+    msg: "OS Family: {{ ansible_os_family }} Distribution: {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
+
+- name: "Set distribution dependent variables"
+  ansible.builtin.include_vars: "{{ item }}"
+  vars:
+    params:
+      files:
+        - '{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml'
+        - '{{ ansible_distribution | lower }}.yml'
+        - '{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml'
+        - '{{ ansible_os_family | lower }}.yml'
+        - 'main.yml'
+      paths:
+        - 'vars'
+  loop: "{{ query('first_found', params) }}"
+
+- name: "Fetch CA certificates from remote host"
+  delegate_to: "{{ certificates_host }}"
+  ansible.builtin.fetch:
+    src: "{{ item.src }}"
+    dest: "/tmp/{{ item.name }}"
+    flat: true
+  loop: "{{ certificates_ca_certs }}"
+  when: item.src is defined and not item.url is defined
+
+- name: "Copy CA certificates to target machine"
+  ansible.builtin.copy:
+    src: "/tmp/{{ item.name }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  loop: "{{ certificates_ca_certs }}"
+  when: item.src is defined and not item.url is defined
+
+- name: "Clean tmp files on controlller"
+  delegate_to: localhost
+  ansible.builtin.file:
+    path: "/tmp/{{ item.name }}"
+    state: absent
+  loop: "{{ certificates_ca_certs }}"
+  when: item.src is defined and not item.url is defined
+
+- name: "Fetch CA certificates from Webserver"
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  loop: "{{ certificates_ca_certs }}"
+  when: item.url is defined
+
+- name: "Install CA certificates"
+  ansible.builtin.command: "{{ certificates_ca_command }}"
+  changed_when: false

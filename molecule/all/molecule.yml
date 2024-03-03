@@ -1,0 +1,118 @@
+---
+# role: ansible-role-certificates
+# file: molecule/default/molecule.yml
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: meta/requirements.yml
+driver:
+  name: podman
+lint: |
+  set -e
+  ansible-lint
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      interpreter_python: auto_silent
+      callback_whitelist: profile_tasks, timer, yaml
+    ssh_connection:
+      pipelining: true
+  log: true
+  playbooks:
+    converge: "../resources/playbooks/converge.yml"
+    prepare: "../resources/playbooks/prepare.yml"
+    verify: "../resources/playbooks/verify.yml"
+  inventory:
+    group_vars:
+      all:
+        certificates_host: "host-certificates"
+        certificates_ca_certs:
+          - name: "example-root-ca.pem"
+            src: "/etc/ssl/ca/example/pub/root-ca.pem"
+            dest: "{{ certificates_ca_dest }}/example-root-ca.pem"
+          - name: "example-intermediate-ca.pem"
+            src: "/etc/ssl/ca/example/pub/intermediate-ca.pem"
+            dest: "{{ certificates_ca_dest }}/example-intermediate-ca.pem"
+          - name: "example-component-ca.pem"
+            src: "/etc/ssl/ca/example/pub/component-ca.pem"
+            dest: "{{ certificates_ca_dest }}/example-component-ca.pem"
+          - name: "example-identity-ca.pem"
+            src: "/etc/ssl/ca/example/pub/identity-ca.pem"
+            dest: "{{ certificates_ca_dest }}/example-identity-ca.pem"
+verifier:
+  name: ansible
+platforms:
+  - name: host-certificates
+    image: "docker.io/jam82/molecule-alpine:latest"
+    pre_build_image: true
+  - name: alpine-3.18-certificates
+    image: "docker.io/jam82/molecule-alpine:3.18"
+    pre_build_image: true
+  - name: alpine-3.19-certificates
+    image: "docker.io/jam82/molecule-alpine:3.19"
+    pre_build_image: true
+  - name: alpine-latest-certificates
+    image: "docker.io/jam82/molecule-alpine:latest"
+    pre_build_image: true
+  - name: archlinux-latest-certificates
+    image: "docker.io/jam82/molecule-archlinux:latest"
+    pre_build_image: true
+  - name: amazonlinux-2-certificates
+    image: "docker.io/jam82/molecule-amazonlinux:2"
+    pre_build_image: true
+  - name: amazonlinux-2023-certificates
+    image: "docker.io/jam82/molecule-amazonlinux:2023"
+    pre_build_image: true
+  - name: amazonlinux-latest-certificates
+    image: "docker.io/jam82/molecule-amazonlinux:latest"
+    pre_build_image: true
+  - name: debian-11-certificates
+    image: "docker.io/jam82/molecule-debian:11"
+    pre_build_image: true
+  - name: debian-12-certificates
+    image: "docker.io/jam82/molecule-debian:12"
+    pre_build_image: true
+  - name: debian-latest-certificates
+    image: "docker.io/jam82/molecule-debian:latest"
+    pre_build_image: true
+  - name: debian-testing-certificates
+    image: "docker.io/jam82/molecule-debian:testing"
+    pre_build_image: true
+  - name: ubuntu-20.04-certificates
+    image: "docker.io/jam82/molecule-ubuntu:20.04"
+    pre_build_image: true
+  - name: ubuntu-22.04-certificates
+    image: "docker.io/jam82/molecule-ubuntu:22.04"
+    pre_build_image: true
+  - name: ubuntu-latest-certificates
+    image: "docker.io/jam82/molecule-ubuntu:latest"
+    pre_build_image: true
+  - name: almalinux-8-certificates
+    image: "docker.io/jam82/molecule-almalinux:8"
+    pre_build_image: true
+  - name: almalinux-9-certificates
+    image: "docker.io/jam82/molecule-almalinux:9"
+    pre_build_image: true
+  - name: almalinux-latest-certificates
+    image: "docker.io/jam82/molecule-almalinux:latest"
+    pre_build_image: true
+  - name: fedora-39-certificates
+    image: "docker.io/jam82/molecule-fedora:39"
+    pre_build_image: true
+  - name: fedora-latest-certificates
+    image: "docker.io/jam82/molecule-fedora:latest"
+    pre_build_image: true
+  - name: fedora-rawhide-certificates
+    image: "docker.io/jam82/molecule-fedora:rawhide"
+    pre_build_image: true
+  - name: oraclelinux-8-certificates
+    image: "docker.io/jam82/molecule-oraclelinux:8"
+    pre_build_image: true
+  - name: oraclelinux-9-certificates
+    image: "docker.io/jam82/molecule-oraclelinux:9"
+    pre_build_image: true
+  - name: oraclelinux-latest-certificates
+    image: "docker.io/jam82/molecule-oraclelinux:latest"
+    pre_build_image: true

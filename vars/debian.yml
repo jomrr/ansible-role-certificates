@@ -1,0 +1,7 @@
+---
+# name: ansible-role-certificates
+# file: vars/debian.yml
+
+certificates_ca_command: update-ca-certificates
+
+certificates_ca_dest: /usr/local/share/ca-certificates

@@ -1,0 +1,56 @@
+---
+# role: ansible-role-certificates
+# file: molecule/default/molecule.yml
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: meta/requirements.yml
+driver:
+  name: podman
+lint: |
+  set -e
+  ansible-lint
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      interpreter_python: auto_silent
+      callback_whitelist: profile_tasks, timer, yaml
+    ssh_connection:
+      pipelining: true
+  log: true
+  playbooks:
+    converge: "../resources/playbooks/converge.yml"
+    prepare: "../resources/playbooks/prepare.yml"
+    verify: "../resources/playbooks/verify.yml"
+  inventory:
+    group_vars:
+      all:
+        certificates_host: "host-certificates"
+        certificates_ca_certs:
+          - name: "example-root-ca.pem"
+            src: "/etc/ssl/ca/example/pub/root-ca.pem"
+            dest: "{{ certificates_ca_dest }}/example-root-ca.pem"
+          - name: "example-intermediate-ca.pem"
+            src: "/etc/ssl/ca/example/pub/intermediate-ca.pem"
+            dest: "{{ certificates_ca_dest }}/example-intermediate-ca.pem"
+          - name: "example-component-ca.pem"
+            src: "/etc/ssl/ca/example/pub/component-ca.pem"
+            dest: "{{ certificates_ca_dest }}/example-component-ca.pem"
+          - name: "example-identity-ca.pem"
+            src: "/etc/ssl/ca/example/pub/identity-ca.pem"
+            dest: "{{ certificates_ca_dest }}/example-identity-ca.pem"
+verifier:
+  name: ansible
+platforms:
+  - name: host-certificates
+    image: "docker.io/jam82/molecule-alpine:latest"
+    pre_build_image: true
+    networks:
+      - name: certificates
+  - name: certificates
+    image: "docker.io/${uns:-jam82}/molecule-${img:-fedora}:${tag:-latest}"
+    pre_build_image: true
+    networks:
+      - name: certificates

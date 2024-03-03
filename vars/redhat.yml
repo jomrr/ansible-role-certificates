@@ -1,0 +1,7 @@
+---
+# name: ansible-role-certificates
+# file: vars/redhat.yml
+
+certificates_ca_command: update-ca-trust extract
+
+certificates_ca_dest: /etc/pki/ca-trust/source/anchors

@@ -1,0 +1,21 @@
+[project]
+name = "ansible-role-certificates"
+version = "0.0.0"
+description = "Ansible role for deploying CA and issued certificates as well as updating the ca trust store."
+authors = ["Jonas Mauer"]
+license = "MIT"
+keywords = ["certificates", "ca", "deploy", "tls"]
+
+repository = "https://github.com/jam82/ansible-role-certificates"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+
+[tool.semantic_release]
+commit_message = "build(release): version {version}"
+major_on_zero = false
+upload_to_pypi = false
+upload_to_vcs_release = true
+version_toml = [
+    "pyproject.toml:project.version",
+]
