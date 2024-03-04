@@ -19,4 +19,7 @@ certificates_ca_certs:
     dest: "{{ certificates_ca_trust_dir }}/mauer-component-ca.crt"
   - url: "https://pki.jonas-mauer.de/identity-ca.pem"
     dest: "{{ certificates_ca_trust_dir }}/mauer-identity-ca.crt"
+
+# certificates to install on remote hosts
+# list of dicts: [{src: "/abs_path", dest: "/abs_path", mode: "0644"},...]
 certificates_certs: []

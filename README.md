@@ -1,6 +1,6 @@
 # Ansible role certificates
 
-![GitHub](https://img.shields.io/github/license/certificates/ansible-role-certificates) ![GitHub last commit](https://img.shields.io/github/last-commit/certificates/ansible-role-certificates) ![GitHub issues](https://img.shields.io/github/issues-raw/certificates/ansible-role-certificates)
+![GitHub](https://img.shields.io/github/license/jam82/ansible-role-certificates) ![GitHub last commit](https://img.shields.io/github/last-commit/jam82/ansible-role-certificates) ![GitHub issues](https://img.shields.io/github/issues-raw/jam82/ansible-role-certificates)
 
 **Ansible role for deploying CA and issued certificates as well as updating the ca trust store.**
 
