@@ -4,4 +4,6 @@
 
 certificates_ca_command: /usr/sbin/update-ca-certificates
 
-certificates_ca_dest: /usr/local/share/ca-certificates
+certificates_ca_trust_dir: /usr/local/share/ca-certificates
+
+certificates_tls_dir: /etc/ssl

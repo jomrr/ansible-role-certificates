@@ -1,0 +1,26 @@
+---
+# name: certificates
+# file: tasks/ca_trust.yml
+
+- name: "Fetch CA certificates from source {{ item.src }}"
+  delegate_to: "{{ certificates_host }}"
+  run_once: true
+  ansible.builtin.fetch:
+    src: "{{ item.src }}"
+    dest: "/tmp/{{ item.dest | ansible.builtin.basename }}"
+    flat: true
+  when: item.src is defined and not item.url is defined
+
+- name: "Copy CA certificates to destination {{ item.dest }}"
+  ansible.builtin.copy:
+    src: "/tmp/{{ item.dest | ansible.builtin.basename }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  when: item.src is defined and not item.url is defined
+
+- name: "Fetch CA certificates from Webserver"
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  when: item.url is defined

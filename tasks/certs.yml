@@ -1,0 +1,16 @@
+---
+# name: certificates
+# file: tasks/certs.yml
+
+- name: "Fetch certificates from {{ item.src }}"
+  delegate_to: "{{ certificates_host }}"
+  ansible.builtin.fetch:
+    src: "{{ item.src }}"
+    dest: "/tmp/{{ item.dest | ansible.builtin.basename }}"
+    flat: true
+
+- name: "Copy certificates to {{ item.dest }}"
+  ansible.builtin.copy:
+    src: "/tmp/{{ item.dest | ansible.builtin.basename }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"

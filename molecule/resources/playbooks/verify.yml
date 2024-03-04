@@ -3,17 +3,38 @@
 # file: molecule/resources/playbooks/verify.yml
 
 - name: "PLAYBOOK | Verify"
-  hosts: all,!host-certificates
-  gather_facts: false
+  hosts: all
+  gather_facts: true
   tasks:
+    - name: "Install openssl"
+      ansible.builtin.package:
+        name: openssl
+        state: present
+
     - name: "Fetch trust list"
-      ansible.builtin.command:
-        cmd: "trust list"
+      ansible.builtin.shell: |
+        set -o pipefail && trust list || \
+        openssl crl2pkcs7 -nocrl -certfile /etc/ssl/certs/ca-certificates.crt | \
+        openssl pkcs7 -print_certs -noout | grep "Example Root CA"
+      args:
+        executable: /bin/bash
       changed_when: false
       register: _trust_list
 
     - name: "Assert true"
       ansible.builtin.assert:
         that: "'Example Root CA' in _trust_list.stdout"
-        fail_msg: "Example Root CA not in trust list"
-        success_msg: "Yee-ha! Example Root CA in trust list"
+        fail_msg: "Oh-no! Example Root CA not in trust list :("
+        success_msg: "Yee-ha! Example Root CA in trust list :)"
+
+- name: "PLAYBOOK | Verify: Cleanup /tmp files"
+  hosts: localhost
+  vars:
+    certificates_ca_trust_dir: /tmp   # just a dummy, as we use basename
+    certificates_tls_dir: /tmp        # just a dummy, as we use basename
+  tasks:
+    - name: "TASK | Remove /tmp files"
+      ansible.builtin.file:
+        path: "/tmp/{{ item | ansible.builtin.basename }}"
+        state: absent
+      loop: "{{ certificates_ca_certs | map(attribute='dest') | list + certificates_certs | map(attribute='dest') | list }}"

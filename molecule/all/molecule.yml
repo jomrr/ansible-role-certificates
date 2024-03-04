@@ -27,24 +27,31 @@ provisioner:
   inventory:
     group_vars:
       all:
-        certificates_host: "host-certificates"
+        certificates_run_once: true
+        certificates_host: "certificates_ca_host"
         certificates_ca_certs:
-          - name: "example-root-ca.pem"
-            src: "/etc/ssl/ca/example/pub/root-ca.pem"
-            dest: "{{ certificates_ca_dest }}/example-root-ca.pem"
-          - name: "example-intermediate-ca.pem"
-            src: "/etc/ssl/ca/example/pub/intermediate-ca.pem"
-            dest: "{{ certificates_ca_dest }}/example-intermediate-ca.pem"
-          - name: "example-component-ca.pem"
-            src: "/etc/ssl/ca/example/pub/component-ca.pem"
-            dest: "{{ certificates_ca_dest }}/example-component-ca.pem"
-          - name: "example-identity-ca.pem"
-            src: "/etc/ssl/ca/example/pub/identity-ca.pem"
-            dest: "{{ certificates_ca_dest }}/example-identity-ca.pem"
+          - src: "/etc/ssl/ca/example/pub/root-ca.pem"
+            dest: "{{ certificates_ca_trust_dir }}/example-root-ca.crt"
+          - src: "/etc/ssl/ca/example/pub/intermediate-ca.pem"
+            dest: "{{ certificates_ca_trust_dir }}/example-intermediate-ca.crt"
+          - src: "/etc/ssl/ca/example/pub/component-ca.pem"
+            dest: "{{ certificates_ca_trust_dir }}/example-component-ca.crt"
+          - src: "/etc/ssl/ca/example/pub/identity-ca.pem"
+            dest: "{{ certificates_ca_trust_dir }}/example-identity-ca.crt"
+        certificates_certs: # certificates_ca_host excluded via playbook
+          - src: "/etc/ssl/ca/example/dist/fritzbox.pem"
+            dest: "{{ certificates_tls_dir }}/certs/fritzbox.pem"
+            mode: "0644"
+          - src: "/etc/ssl/ca/example/dist/fritzbox-fullchain.pem"
+            dest: "{{ certificates_tls_dir }}/certs/fritzbox-fullchain.pem"
+            mode: "0644"
+          - src: "/etc/ssl/ca/example/dist/fritzbox.key"
+            dest: "{{ certificates_tls_dir }}/private/fritzbox.key"
+            mode: "0600"
 verifier:
   name: ansible
 platforms:
-  - name: host-certificates
+  - name: certificates_ca_host
     image: "docker.io/jam82/molecule-alpine:latest"
     pre_build_image: true
   - name: alpine-3.18-certificates

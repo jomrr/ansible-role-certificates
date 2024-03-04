@@ -11,24 +11,6 @@ destinations and updated the ca-trust on the OS. Furthermore it deploys
 TLS certificates and keys to the operating systems default location for
 TLS certificates and keys.
 
-
-## Table of Contents
-
-- [Description](#description)
-- [Table of Contents](#table-of-contents)
-- [Prerequisites](#prerequisites)
-  - [System packages (Fedora)](#system-packages-fedora)
-  - [Python (requirements.txt)](#python-requirementstxt)
-- [Dependencies (requirements.yml)](#dependencies-requirementsyml)
-- [Supported Platforms](#supported-platforms)
-- [Role Variables](#role-variables)
-- [Example Playbook](#example-playbook)
-- [The default example playbook](#the-default-example-playbook)
-- [License](#license)
-- [Author Information](#author-information)
-- [Contributing](#contributing)
-- [References](#references)
-
 ## Prerequisites
 
 This role has no special prerequisites.

@@ -3,16 +3,20 @@
 # file: molecule/resources/playbooks/prepare.yml
 
 - name: "PLAYBOOK | Prepare"
-  hosts: host-certificates
+  hosts: certificates_ca_host
   become: true
   gather_facts: true
-  vars:
-    certificates_ca_dir: "/etc/ssl/ca/example"
+  vars: # using alpine image here
+    certificates_tls_dir: "/etc/ssl"
+    certificates_ca_dir: "{{ certificates_tls_dir }}/ca/example"
+    apache_package_name: "apache2"
+    apache_service_name: "apache2"
+    apache_web_root_dir: "/var/www/localhost/htdocs"
   tasks:
     - name: "Install packages"
       ansible.builtin.package:
         name:
-          - apache2
+          - "{{ apache_package_name }}"
           - git
           - make
           - openssl
@@ -35,14 +39,14 @@
       community.general.make:
         chdir: "{{ certificates_ca_dir }}"
         target: certs/component-ca/server/fritzbox
-    - name: "Copy certificates to /var/www/html"
+    - name: "Copy certificates to {{ apache_web_root_dir }}"
       ansible.builtin.copy:
         src: "{{ certificates_ca_dir }}/pub/"
-        dest: "/var/www/localhost/htdocs/"
+        dest: "{{ apache_web_root_dir }}/"
         mode: "0644"
         remote_src: true
     - name: "Start webserver"
       ansible.builtin.service:
-        name: apache2
+        name: "{{ apache_service_name }}"
         state: started
         enabled: true
