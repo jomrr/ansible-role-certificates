@@ -70,12 +70,45 @@ The default example playbook for the role.
 ```yaml
 ---
 # name: "certificates"
-# file: "certificates.yml"
-- hosts: all
+# file: "site.yml"
+- name: "PLAYBOOK | certificates | distribute certificates"
+  hosts: all
   gather_facts: true
+  vars:
+    certificates_host: "certificates_ca_host"
+    certificates_ca_certs:
+      - src: "/etc/ssl/ca/example/pub/root-ca.pem"
+        dest: "{{ certificates_ca_trust_dir }}/example-root-ca.crt"
+      - src: "/etc/ssl/ca/example/pub/intermediate-ca.pem"
+        dest: "{{ certificates_ca_trust_dir }}/example-intermediate-ca.crt"
+      - src: "/etc/ssl/ca/example/pub/component-ca.pem"
+        dest: "{{ certificates_ca_trust_dir }}/example-component-ca.crt"
+      - src: "/etc/ssl/ca/example/pub/identity-ca.pem"
+        dest: "{{ certificates_ca_trust_dir }}/example-identity-ca.crt"
+    certificates_certs:
+      - src: "/etc/ssl/ca/example/dist/fritzbox.pem"
+        dest: "{{ certificates_tls_dir }}/certs/fritzbox.pem"
+        mode: "0644"
+      - src: "/etc/ssl/ca/example/dist/fritzbox-fullchain.pem"
+        dest: "{{ certificates_tls_dir }}/certs/fritzbox-fullchain.pem"
+        mode: "0644"
+      - src: "/etc/ssl/ca/example/dist/fritzbox.key"
+        dest: "{{ certificates_tls_dir }}/private/fritzbox.key"
+        mode: "0600"
   roles:
     - role: "jam82.certificates"
 
+- name: "PLAYBOOK | certificates | cleanup controller"
+  hosts: localhost
+  vars:
+    certificates_ca_trust_dir: /tmp   # just a dummy, as we use basename
+    certificates_tls_dir: /tmp        # just a dummy, as we use basename
+  tasks:
+    - name: "TASK | certificates | Remove /tmp files"
+      ansible.builtin.file:
+        path: "/tmp/{{ item | ansible.builtin.basename }}"
+        state: absent
+      loop: "{{ certificates_ca_certs | map(attribute='dest') | list + certificates_certs | map(attribute='dest') | list }}"
 ```
 
 ## License

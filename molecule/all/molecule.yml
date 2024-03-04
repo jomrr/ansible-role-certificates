@@ -38,7 +38,7 @@ provisioner:
             dest: "{{ certificates_ca_trust_dir }}/example-component-ca.crt"
           - src: "/etc/ssl/ca/example/pub/identity-ca.pem"
             dest: "{{ certificates_ca_trust_dir }}/example-identity-ca.crt"
-        certificates_certs: # certificates_ca_host excluded via playbook
+        certificates_certs:
           - src: "/etc/ssl/ca/example/dist/fritzbox.pem"
             dest: "{{ certificates_tls_dir }}/certs/fritzbox.pem"
             mode: "0644"
