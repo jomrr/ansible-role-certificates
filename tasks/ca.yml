@@ -4,7 +4,7 @@
 
 - name: "Fetch CA certificates from source {{ item.src }}"
   delegate_to: "{{ certificates_host }}"
-  run_once: true
+  run_once: "{{ certificates_run_once }}"
   ansible.builtin.fetch:
     src: "{{ item.src }}"
     dest: "/tmp/{{ item.dest | ansible.builtin.basename }}"
