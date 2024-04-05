@@ -6,7 +6,7 @@ authors = ["Jonas Mauer"]
 license = "MIT"
 keywords = ["certificates", "ca", "deploy", "tls"]
 
-repository = "https://github.com/jam82/ansible-role-certificates"
+repository = "https://github.com/jomrr/ansible-role-certificates"
 
 [tool.commitizen]
 name = "cz_conventional_commits"

@@ -52,74 +52,74 @@ verifier:
   name: ansible
 platforms:
   - name: certificates_ca_host
-    image: "docker.io/jam82/molecule-alpine:latest"
+    image: "docker.io/jomrr/molecule-alpine:latest"
     pre_build_image: true
   - name: alpine-3.18-certificates
-    image: "docker.io/jam82/molecule-alpine:3.18"
+    image: "docker.io/jomrr/molecule-alpine:3.18"
     pre_build_image: true
   - name: alpine-3.19-certificates
-    image: "docker.io/jam82/molecule-alpine:3.19"
+    image: "docker.io/jomrr/molecule-alpine:3.19"
     pre_build_image: true
   - name: alpine-latest-certificates
-    image: "docker.io/jam82/molecule-alpine:latest"
+    image: "docker.io/jomrr/molecule-alpine:latest"
     pre_build_image: true
   - name: archlinux-latest-certificates
-    image: "docker.io/jam82/molecule-archlinux:latest"
+    image: "docker.io/jomrr/molecule-archlinux:latest"
     pre_build_image: true
   - name: amazonlinux-2-certificates
-    image: "docker.io/jam82/molecule-amazonlinux:2"
+    image: "docker.io/jomrr/molecule-amazonlinux:2"
     pre_build_image: true
   - name: amazonlinux-2023-certificates
-    image: "docker.io/jam82/molecule-amazonlinux:2023"
+    image: "docker.io/jomrr/molecule-amazonlinux:2023"
     pre_build_image: true
   - name: amazonlinux-latest-certificates
-    image: "docker.io/jam82/molecule-amazonlinux:latest"
+    image: "docker.io/jomrr/molecule-amazonlinux:latest"
     pre_build_image: true
   - name: debian-11-certificates
-    image: "docker.io/jam82/molecule-debian:11"
+    image: "docker.io/jomrr/molecule-debian:11"
     pre_build_image: true
   - name: debian-12-certificates
-    image: "docker.io/jam82/molecule-debian:12"
+    image: "docker.io/jomrr/molecule-debian:12"
     pre_build_image: true
   - name: debian-latest-certificates
-    image: "docker.io/jam82/molecule-debian:latest"
+    image: "docker.io/jomrr/molecule-debian:latest"
     pre_build_image: true
   - name: debian-testing-certificates
-    image: "docker.io/jam82/molecule-debian:testing"
+    image: "docker.io/jomrr/molecule-debian:testing"
     pre_build_image: true
   - name: ubuntu-20.04-certificates
-    image: "docker.io/jam82/molecule-ubuntu:20.04"
+    image: "docker.io/jomrr/molecule-ubuntu:20.04"
     pre_build_image: true
   - name: ubuntu-22.04-certificates
-    image: "docker.io/jam82/molecule-ubuntu:22.04"
+    image: "docker.io/jomrr/molecule-ubuntu:22.04"
     pre_build_image: true
   - name: ubuntu-latest-certificates
-    image: "docker.io/jam82/molecule-ubuntu:latest"
+    image: "docker.io/jomrr/molecule-ubuntu:latest"
     pre_build_image: true
   - name: almalinux-8-certificates
-    image: "docker.io/jam82/molecule-almalinux:8"
+    image: "docker.io/jomrr/molecule-almalinux:8"
     pre_build_image: true
   - name: almalinux-9-certificates
-    image: "docker.io/jam82/molecule-almalinux:9"
+    image: "docker.io/jomrr/molecule-almalinux:9"
     pre_build_image: true
   - name: almalinux-latest-certificates
-    image: "docker.io/jam82/molecule-almalinux:latest"
+    image: "docker.io/jomrr/molecule-almalinux:latest"
     pre_build_image: true
   - name: fedora-39-certificates
-    image: "docker.io/jam82/molecule-fedora:39"
+    image: "docker.io/jomrr/molecule-fedora:39"
     pre_build_image: true
   - name: fedora-latest-certificates
-    image: "docker.io/jam82/molecule-fedora:latest"
+    image: "docker.io/jomrr/molecule-fedora:latest"
     pre_build_image: true
   - name: fedora-rawhide-certificates
-    image: "docker.io/jam82/molecule-fedora:rawhide"
+    image: "docker.io/jomrr/molecule-fedora:rawhide"
     pre_build_image: true
   - name: oraclelinux-8-certificates
-    image: "docker.io/jam82/molecule-oraclelinux:8"
+    image: "docker.io/jomrr/molecule-oraclelinux:8"
     pre_build_image: true
   - name: oraclelinux-9-certificates
-    image: "docker.io/jam82/molecule-oraclelinux:9"
+    image: "docker.io/jomrr/molecule-oraclelinux:9"
     pre_build_image: true
   - name: oraclelinux-latest-certificates
-    image: "docker.io/jam82/molecule-oraclelinux:latest"
+    image: "docker.io/jomrr/molecule-oraclelinux:latest"
     pre_build_image: true

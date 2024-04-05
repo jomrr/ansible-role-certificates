@@ -28,7 +28,7 @@
         mode: "0755"
     - name: "Clone make-ca repository"
       ansible.builtin.git:
-        repo: "https://github.com/jam82/make-ca.git"
+        repo: "https://github.com/jomrr/make-ca.git"
         dest: "{{ certificates_ca_dir }}"
         version: main
     - name: "Run CA 'init' target"

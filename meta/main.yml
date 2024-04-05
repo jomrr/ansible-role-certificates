@@ -3,13 +3,13 @@
 # file: meta/main.yml
 
 galaxy_info:
-  namespace: jam82
+  namespace: jomrr
   role_name: certificates
   author: Jonas Mauer
   company: none
   description: Ansible role for deploying CA and issued certificates as well as updating the ca trust store.
   license: MIT
-  issue_tracker_url: https://github.com/jam82/ansible-role-certificates/issues
+  issue_tracker_url: https://github.com/jomrr/ansible-role-certificates/issues
   min_ansible_version: "2.15"
   galaxy_tags:
     - certificates
