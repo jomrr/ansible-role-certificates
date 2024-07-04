@@ -5,12 +5,12 @@
 # run_once switch for molecule tests and if all certs are the same for all hosts
 certificates_run_once: false
 
-# the source hostname where certificates are fetched from
+# the source inventory hostname where certificates are fetched from
 certificates_host: "dantooine"
 
 certificates_fetch: []
-#  - src: ""
-#  - dest: ""
+#  - src: "/path/to/certificates"
+#    dest: "/path/to/certificates"
 
 # ca certificates to install on remote hosts.
 # ATTENTION: Suffix must be .crt for os_family Debian (◔_◔)
