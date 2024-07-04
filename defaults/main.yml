@@ -8,6 +8,10 @@ certificates_run_once: false
 # the source hostname where certificates are fetched from
 certificates_host: "dantooine"
 
+certificates_fetch: []
+#  - src: ""
+#  - dest: ""
+
 # ca certificates to install on remote hosts.
 # ATTENTION: Suffix must be .crt for os_family Debian (◔_◔)
 certificates_ca_certs:
