@@ -1,11 +1,10 @@
 [project]
-name = "ansible-role-certificates"
+name = "certificates"
 version = "0.0.0"
-description = "Ansible role for deploying CA and issued certificates as well as updating the ca trust store."
+description = "Ansible role for deploying CA/TLS Certificates and updating the CA Trust Store."
 authors = ["Jonas Mauer"]
 license = "MIT"
-keywords = ["certificates", "ca", "deploy", "tls"]
-
+keywords = ["ca", "certificates", "https", "pki", "security", "ssl", "tls", "x509"]
 repository = "https://github.com/jomrr/ansible-role-certificates"
 
 [tool.commitizen]

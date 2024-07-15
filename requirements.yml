@@ -1,8 +1,7 @@
 ---
 # role: jomrr.certificates
-# file: meta/requirements.yml
+# file: requirements.yml
 
-collections:
-  - {'name': 'community.general'}
+collections: []
 
 roles: []
