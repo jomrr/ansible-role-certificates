@@ -1,16 +1,15 @@
 ---
-# role: ansible-role-certificates
+# role: jomrr.ansible-role-certificates
 # file: molecule/default/molecule.yml
 
+scenario:
+  name: default
 dependency:
   name: galaxy
-  options:
-    requirements-file: meta/requirements.yml
+  requirements-file: meta/requirements.yml
 driver:
   name: podman
-lint: |
-  set -e
-  ansible-lint
+lint: set -e; ansible-lint
 provisioner:
   name: ansible
   config_options:
@@ -21,45 +20,62 @@ provisioner:
       pipelining: true
   log: true
   playbooks:
-    converge: "../resources/playbooks/converge.yml"
-    prepare: "../resources/playbooks/prepare.yml"
-    verify: "../resources/playbooks/verify.yml"
+    converge: ../resources/playbooks/converge.yml
+    prepare: ../resources/playbooks/prepare.yml
+    verify: ../resources/playbooks/verify.yml
   inventory:
     group_vars:
       all:
         certificates_run_once: true
-        certificates_host: "certificates_ca_host"
+        certificates_host: certificates_ca_host
+        certificates_fetch:
+          - src: /etc/ssl/ca/example/pub/root-ca.pem
+            dest: /tmp/root-ca.pem
+          - src: /etc/ssl/ca/example/pub/intermediate-ca.pem
+            dest: /tmp/intermediate-ca.pem
+          - src: /etc/ssl/ca/example/pub/component-ca.pem
+            dest: /tmp/component-ca.pem
+          - src: /etc/ssl/ca/example/pub/identity-ca.pem
+            dest: /tmp/identity-ca.pem
+          - src: /etc/ssl/ca/example/dist/fritzbox.pem
+            dest: /tmp/fritzbox.pem
+          - src: /etc/ssl/ca/example/dist/fritzbox-fullchain.pem
+            dest: /tmp/fritzbox-fullchain.pem
+          - src: /etc/ssl/ca/example/dist/fritzbox.key
+            dest: /tmp/fritzbox.key
         certificates_ca_certs:
-          - src: "/etc/ssl/ca/example/pub/root-ca.pem"
-            dest: "{{ certificates_ca_trust_dir }}/example-root-ca.crt"
-          - src: "/etc/ssl/ca/example/pub/intermediate-ca.pem"
-            dest: "{{ certificates_ca_trust_dir }}/example-intermediate-ca.crt"
-          - src: "/etc/ssl/ca/example/pub/component-ca.pem"
-            dest: "{{ certificates_ca_trust_dir }}/example-component-ca.crt"
-          - src: "/etc/ssl/ca/example/pub/identity-ca.pem"
-            dest: "{{ certificates_ca_trust_dir }}/example-identity-ca.crt"
+          - src: /tmp/root-ca.pem
+            dest: '{{ certificates_ca_trust_dir }}/example-root-ca.crt'
+          - src: /tmp/intermediate-ca.pem
+            dest: '{{ certificates_ca_trust_dir }}/example-intermediate-ca.crt'
+          - src: /tmp/component-ca.pem
+            dest: '{{ certificates_ca_trust_dir }}/example-component-ca.crt'
+          - src: /tmp/identity-ca.pem
+            dest: '{{ certificates_ca_trust_dir }}/example-identity-ca.crt'
     host_vars:
       certificates:
         certificates_certs:
-          - src: "/etc/ssl/ca/example/dist/fritzbox.pem"
-            dest: "{{ certificates_tls_dir }}/certs/fritzbox.pem"
-            mode: "0644"
-          - src: "/etc/ssl/ca/example/dist/fritzbox-fullchain.pem"
-            dest: "{{ certificates_tls_dir }}/certs/fritzbox-fullchain.pem"
-            mode: "0644"
-          - src: "/etc/ssl/ca/example/dist/fritzbox.key"
-            dest: "{{ certificates_tls_dir }}/private/fritzbox.key"
-            mode: "0600"
+          - src: /tmp/fritzbox.pem
+            dest: '{{ certificates_tls_dir }}/certs/fritzbox.pem'
+          - src: /tmp/fritzbox-fullchain.pem
+            dest: '{{ certificates_tls_dir }}/certs/fritzbox-fullchain.pem'
+          - src: /tmp/fritzbox.key
+            dest: '{{ certificates_tls_dir }}/private/fritzbox.key'
 verifier:
   name: ansible
 platforms:
   - name: certificates_ca_host
-    image: "docker.io/jomrr/molecule-alpine:latest"
+    image: docker.io/jomrr/molecule-alpine:3.19
     pre_build_image: true
+    entrypoint: null
+    command: null
     networks:
       - name: certificates
   - name: certificates
-    image: "docker.io/${uns:-jomrr}/molecule-${img:-fedora}:${tag:-latest}"
+    image: docker.io/${uns:-jomrr}/molecule-${img:-fedora}:${tag:-latest}
     pre_build_image: true
+    entrypoint: null
+    command: null
+    systemd: true
     networks:
       - name: certificates

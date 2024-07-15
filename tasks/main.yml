@@ -8,23 +8,6 @@
     - all
     - setup
 
-- name: "Debug distribution and os_family"
-  ansible.builtin.debug:
-    msg: "OS Family: {{ ansible_os_family }} Distribution: {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
-
-- name: "Set distribution dependent variables"
-  ansible.builtin.include_vars: "{{ item }}"
-  vars:
-    params:
-      files:
-        - '{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml'
-        - '{{ ansible_distribution | lower }}.yml'
-        - '{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml'
-        - '{{ ansible_os_family | lower }}.yml'
-      paths:
-        - 'vars'
-  loop: "{{ query('first_found', params) }}"
-
 - name: "Install ca-certificates package"
   ansible.builtin.package:
     name: ca-certificates
@@ -35,11 +18,11 @@
     - certs
     - install
 
-- name: "Fetch certificates from source {{ item.src }}"
+- name: "Fetch certificates from source {{ item.src | default('<none>') }}"
   delegate_to: "{{ certificates_host }}"
   ansible.builtin.fetch:
     src: "{{ item.src }}"
-    dest: "/tmp/{{ item.dest | ansible.builtin.basename }}"
+    dest: "{{ item.dest }}"
     flat: true
   loop: "{{ certificates_fetch }}"
   tags:
@@ -61,6 +44,7 @@
   tags:
     - all
     - ca
+    - distribute
 
 - name: "Include tasks for certificate distribution"
   ansible.builtin.include_tasks: "certs.yml"
@@ -68,3 +52,12 @@
   tags:
     - all
     - certs
+    - distribute
+
+- name: "Cleanup /tmp files"
+  delegate_to: localhost
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ certificates_fetch | map(attribute='dest') | list | unique }}"
+  when: certificates_fetch | default([]) | length > 0

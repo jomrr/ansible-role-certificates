@@ -2,16 +2,20 @@
 # name: certificates
 # file: tasks/ca_trust.yml
 
-- name: "Copy CA certificates to destination {{ item.dest }}"
+- name: "Copy CA certificates to destination {{ item.dest | default('<none>') }}"
   ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
+    owner: "root"
+    group: "root"
     mode: "0644"
   when: item.src is defined and not item.url is defined
 
-- name: "Fetch CA certificates {{ item.url }}"
+- name: "Fetch CA certificates from url {{ item.dest | default('<none>') }}"
   ansible.builtin.get_url:
     url: "{{ item.url }}"
     dest: "{{ item.dest }}"
+    owner: "root"
+    group: "root"
     mode: "0644"
   when: item.url is defined

@@ -1,0 +1,27 @@
+---
+# name: ansible-role-certificates
+# file: vars/main.yml
+
+_certificates_ca_command:
+  Alpine: /usr/sbin/update-ca-certificates --fresh
+  Archlinux: /usr/bin/update-ca-trust
+  Debian: /usr/sbin/update-ca-certificates --fresh
+  RedHat: update-ca-trust extract
+
+_certificates_ca_trust_dir:
+  Alpine: /usr/local/share/ca-certificates
+  Archlinux: /etc/ca-certificates/trust-source/anchors
+  Debian: /usr/local/share/ca-certificates
+  RedHat: /etc/pki/ca-trust/source/anchors
+
+_certificates_tls_dir:
+  Alpine: /etc/ssl
+  Archlinux: /etc/ssl
+  Debian: /etc/ssl
+  RedHat: /etc/pki/tls
+
+certificates_ca_command: "{{ _certificates_ca_command[ansible_os_family] }}"
+
+certificates_ca_trust_dir: "{{ _certificates_ca_trust_dir[ansible_os_family] }}"
+
+certificates_tls_dir: "{{ _certificates_tls_dir[ansible_os_family] }}"

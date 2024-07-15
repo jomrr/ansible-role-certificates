@@ -1,5 +1,4 @@
----
-# role: ansible-role-certificates
+# role: jomrr.certificates
 # file: molecule/resources/playbooks/prepare.yml
 
 - name: "PLAYBOOK | Prepare"
