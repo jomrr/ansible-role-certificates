@@ -1,6 +1,13 @@
-# IDE files and directories ----------------------------------------------------
-.idea/
-.vscode/
-# Python files and directories -------------------------------------------------
-.venv/
+# role: jomrr.certificates
+# file: .gitignore
+
 __pycache__/
+!.gitkeep
+.ansible/
+.idea/
+.tox/
+.venv/
+.vscode/
+cache/
+collections/*
+dist/
