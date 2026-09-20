@@ -1,0 +1,6 @@
+---
+# role: certificates
+# file: vars/RedHat.yml
+
+__certificates_certificate_directory: /etc/pki/tls/certs
+__certificates_private_key_directory: /etc/pki/tls/private

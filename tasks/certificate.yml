@@ -1,0 +1,12 @@
+---
+# role: certificates
+# file: tasks/certificate.yml
+
+- name: CERTIFICATES | Obtain candidate artifacts from the source host
+  ansible.builtin.import_tasks: source.yml
+
+- name: CERTIFICATES | Check candidate certificate identities
+  ansible.builtin.import_tasks: assert.yml
+
+- name: CERTIFICATES | Install checked artifacts on the consumer
+  ansible.builtin.import_tasks: install.yml

@@ -1,9 +1,10 @@
 ---
-# role: ansible-role-certificates
+# role: certificates
 # file: molecule/resources/playbooks/converge.yml
 
-- name: "PLAYBOOK | Converge"
+- name: CERTIFICATES | Install certificates and start consuming services
   hosts: all
   gather_facts: true
   roles:
     - role: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+    - role: certificates_test_service

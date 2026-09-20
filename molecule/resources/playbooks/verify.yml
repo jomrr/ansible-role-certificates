@@ -1,26 +1,53 @@
-# role: jomrr.certificates
+---
+# role: certificates
 # file: molecule/resources/playbooks/verify.yml
 
-- name: "PLAYBOOK | Verify"
+- name: CERTIFICATES | Verify deployed TLS identities and permissions
   hosts: all
   gather_facts: true
   tasks:
-    - name: "Install openssl"
-      ansible.builtin.package:
-        name: openssl
-        state: present
+    - name: CERTIFICATES | Read the web TLS identity
+      community.crypto.get_certificate:
+        host: localhost
+        port: 18443
+      register: __certificates_test_web
 
-    - name: "Fetch trust list"
-      ansible.builtin.shell: set -o pipefail && trust list ||
-        openssl crl2pkcs7 -nocrl -certfile /etc/ssl/certs/ca-certificates.crt |
-        openssl pkcs7 -print_certs -noout | grep "Example Root CA"
-      args:
-        executable: /bin/bash
-      changed_when: false
-      register: _trust_list
+    - name: CERTIFICATES | Read the mail TLS identity
+      community.crypto.get_certificate:
+        host: localhost
+        port: 19443
+      register: __certificates_test_mail
 
-    - name: "Assert true"
+    - name: CERTIFICATES | Verify the host-specific certificate assignments
       ansible.builtin.assert:
-        that: "'Example Root CA' in _trust_list.stdout"
-        fail_msg: "Oh-no! Example Root CA not in trust list :("
-        success_msg: "Yee-ha! Example Root CA in trust list :)"
+        that:
+          - __certificates_test_web.subject.CN == inventory_hostname ~ '-web'
+          - __certificates_test_mail.subject.CN == inventory_hostname ~ '-mail'
+
+    - name: CERTIFICATES | Inspect deployed resources
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: "{{ __certificates_test_resource.path }}"
+      loop:
+        - {path: "{{ __certificates_test_certificate_directory }}/18443.crt", mode: '0644', owner: root, group: root}
+        - {path: "{{ __certificates_test_certificate_directory }}/18443-chain.pem", mode: '0644', owner: root, group: root}
+        - {path: "{{ __certificates_test_certificate_directory }}/18443-fullchain.pem", mode: '0644', owner: root, group: root}
+        - {path: "{{ __certificates_test_key_directory }}/18443.key", mode: '0600', owner: root, group: root}
+        - {path: "{{ __certificates_test_certificate_directory }}/19443.crt", mode: '0640', owner: root, group: root}
+        - {path: "{{ __certificates_test_key_directory }}/19443.key", mode: '0640', owner: nobody, group: root}
+      loop_control:
+        loop_var: __certificates_test_resource
+        label: "{{ __certificates_test_resource.path }}"
+      register: __certificates_test_stats
+
+    - name: CERTIFICATES | Verify installed access permissions
+      ansible.builtin.assert:
+        that:
+          - __certificates_test_stat.stat.mode == __certificates_test_stat.__certificates_test_resource.mode
+          - __certificates_test_stat.stat.pw_name == __certificates_test_stat.__certificates_test_resource.owner
+          - __certificates_test_stat.stat.gr_name == __certificates_test_stat.__certificates_test_resource.group
+      loop: "{{ __certificates_test_stats.results }}"
+      loop_control:
+        loop_var: __certificates_test_stat
+        label: "{{ __certificates_test_stat.stat.path }}"

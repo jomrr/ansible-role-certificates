@@ -1,63 +1,50 @@
 ---
-# name: certificates
+# role: certificates
 # file: tasks/main.yml
 
-- name: "Gather Facts"
-  ansible.builtin.setup:
-  tags:
-    - all
-    - setup
+- name: CERTIFICATES | Validate certificate filename stems
+  ansible.builtin.assert:
+    that:
+      - >-
+        certificates_certificates | map(attribute='name') | unique(case_sensitive=true) | length
+        == certificates_certificates | length
+      - >-
+        certificates_certificates | map(attribute='name')
+        | select('match', '^[A-Za-z0-9][A-Za-z0-9_.-]*$') | list | length
+        == certificates_certificates | length
+    fail_msg: Certificate names must be unique filename stems using ASCII letters, digits, dots, underscores or hyphens.
+    quiet: true
 
-- name: "Install ca-certificates package"
+- name: CERTIFICATES | Load platform settings
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __certificates_platform_files) }}"
+  vars:
+    __certificates_platform_files:
+      files:
+        - "{{ ansible_facts.os_family }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+
+- name: CERTIFICATES | Install platform TLS directories
+  become: true
+  become_user: root
   ansible.builtin.package:
-    name: ca-certificates
+    name: openssl
     state: present
-  tags:
-    - all
-    - ca
-    - certs
-    - install
 
-- name: "Fetch certificates from source {{ item.src | default('<none>') }}"
-  delegate_to: "{{ certificates_host }}"
-  ansible.builtin.fetch:
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
-    flat: true
-  loop: "{{ certificates_fetch }}"
-  tags:
-    - all
-    - ca
-    - certs
-    - fetch
-
-- name: "Include tasks for CA certificate distribution"
-  ansible.builtin.include_tasks: "ca.yml"
-  loop: "{{ certificates_ca_certs | default([]) }}"
-  tags:
-    - all
-    - ca
-
-- name: "Install CA certificates in trust store"
-  ansible.builtin.command: "{{ certificates_ca_command }}"
-  changed_when: false
-  tags:
-    - all
-    - ca
-    - distribute
-
-- name: "Include tasks for certificate distribution"
-  ansible.builtin.include_tasks: "certs.yml"
-  loop: "{{ certificates_certs | default([]) }}"
-  tags:
-    - all
-    - certs
-    - distribute
-
-- name: "Cleanup /tmp files"
-  delegate_to: localhost
+- name: CERTIFICATES | Ensure the server certificate directory
+  become: true
+  become_user: root
   ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop: "{{ certificates_fetch | map(attribute='dest') | list | unique }}"
-  when: certificates_fetch | default([]) | length > 0
+    path: "{{ __certificates_certificate_directory }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+    setype: _default
+
+- name: CERTIFICATES | Distribute certificate deployments
+  ansible.builtin.include_tasks: certificate.yml
+  loop: "{{ certificates_certificates }}"
+  loop_control:
+    loop_var: __certificates_item
+    label: "{{ __certificates_item.name }}"

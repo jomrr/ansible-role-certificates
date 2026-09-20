@@ -1,0 +1,41 @@
+---
+# role: certificates
+# file: molecule/resources/playbooks/roles/certificates_test_service/tasks/main.yml
+
+- name: CERTIFICATES | Install the fixture TLS server
+  become: true
+  become_user: root
+  ansible.builtin.package:
+    name: openssl
+    state: present
+
+- name: CERTIFICATES | Configure the fixture TLS services
+  become: true
+  become_user: root
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/certificates-test@.service
+    mode: '0644'
+    content: |
+      # Managed by ansible.
+      # file: /etc/systemd/system/certificates-test@.service
+      [Unit]
+      Description=Certificate distribution test TLS endpoint
+      [Service]
+      ExecStart=/usr/bin/openssl s_server -accept %i \
+        -cert {{ __certificates_test_certificate_directory }}/%i.crt \
+        -key {{ __certificates_test_key_directory }}/%i.key -www
+      [Install]
+      WantedBy=multi-user.target
+
+- name: CERTIFICATES | Start the fixture TLS services
+  become: true
+  become_user: root
+  ansible.builtin.systemd_service:
+    name: "certificates-test@{{ __certificates_test_port }}"
+    daemon_reload: true
+    state: started
+    enabled: true
+  loop: [18443, 19443]
+  loop_control:
+    loop_var: __certificates_test_port
+    label: "{{ __certificates_test_port }}"

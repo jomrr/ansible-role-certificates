@@ -1,22 +1,16 @@
 ---
-# role: jomrr.certificates
+# role: certificates
 # file: meta/main.yml
 
 galaxy_info:
+  author: Jonas Mauer
+  description: Ansible role for distributing existing TLS certificates and notifying their consuming services.
+  galaxy_tags:
+    - certificates
+    - security
+    - system
+  issue_tracker_url: https://github.com/jomrr/ansible-role-certificates/issues
+  license: MIT
+  min_ansible_version: "2.20"
   namespace: jomrr
   role_name: certificates
-  author: Jonas Mauer
-  company: none
-  description: Ansible role for deploying CA/TLS Certificates and updating the CA Trust Store.
-  license: MIT
-  issue_tracker_url: https://github.com/jomrr/ansible-role-certificates/issues
-  min_ansible_version: "2.17"
-  galaxy_tags:
-    - ca
-    - certificates
-    - https
-    - pki
-    - security
-    - ssl
-    - tls
-    - x509

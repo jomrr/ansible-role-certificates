@@ -1,0 +1,31 @@
+---
+# role: certificates
+# file: molecule/resources/playbooks/roles/certificates_test_service/handlers/main.yml
+
+- name: CERTIFICATES | Validate web TLS certificate
+  become: true
+  become_user: root
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - verify
+      - -CAfile
+      - "{{ __certificates_test_certificate_directory }}/18443-chain.pem"
+      - "{{ __certificates_test_certificate_directory }}/18443.crt"
+  changed_when: false
+  listen: activate test web tls
+
+- name: CERTIFICATES | Restart web TLS
+  become: true
+  become_user: root
+  ansible.builtin.systemd_service:
+    name: certificates-test@18443
+    state: restarted
+  listen: activate test web tls
+
+- name: CERTIFICATES | Restart mail TLS
+  become: true
+  become_user: root
+  ansible.builtin.systemd_service:
+    name: certificates-test@19443
+    state: restarted

@@ -1,0 +1,130 @@
+---
+# role: certificates
+# file: meta/argument_specs.yml
+
+argument_specs:
+  main:
+    short_description: Install existing PEM certificates and matching private keys on
+      consumer hosts.
+    options:
+      certificates_certificates:
+        type: list
+        elements: dict
+        default: []
+        options:
+          name:
+            type: str
+            required: true
+            description: Unique filename stem starting with an ASCII letter or digit and
+              containing only ASCII letters, digits, dots, underscores or hyphens.
+          certificate:
+            type: dict
+            required: true
+            options:
+              src:
+                type: path
+                required: true
+                description: Absolute artifact file path on the source host.
+              owner:
+                type: str
+                description: File owner; defaults to certificates_owner.
+              group:
+                type: str
+                description: File group; defaults to certificates_group.
+              mode:
+                type: str
+                description: File mode; defaults to certificates_certificate_mode.
+            description: PEM leaf certificate to install.
+          chain:
+            type: dict
+            options:
+              src:
+                type: path
+                required: true
+                description: Absolute artifact file path on the source host.
+              owner:
+                type: str
+                description: File owner; defaults to certificates_owner.
+              group:
+                type: str
+                description: File group; defaults to certificates_group.
+              mode:
+                type: str
+                description: File mode; defaults to certificates_certificate_mode.
+            description: Optional existing PEM issuer chain to install unchanged.
+          fullchain:
+            type: dict
+            options:
+              src:
+                type: path
+                required: true
+                description: Absolute artifact file path on the source host.
+              owner:
+                type: str
+                description: File owner; defaults to certificates_owner.
+              group:
+                type: str
+                description: File group; defaults to certificates_group.
+              mode:
+                type: str
+                description: File mode; defaults to certificates_certificate_mode.
+            description: Optional existing PEM fullchain starting with the declared leaf
+              certificate.
+          private_key:
+            type: dict
+            options:
+              src:
+                type: path
+                required: true
+                description: Absolute artifact file path on the source host.
+              owner:
+                type: str
+                description: File owner; defaults to certificates_owner.
+              group:
+                type: str
+                description: File group; defaults to certificates_group.
+              mode:
+                type: str
+                description: File mode; defaults to certificates_private_key_mode.
+            description: Optional unencrypted PEM private key; its public key must match
+              before this deployment is installed.
+          notify:
+            type: list
+            elements: str
+            required: true
+            description: Explicit handler names or listen topics in this play. Use an empty
+              list when no activation is needed.
+          source_host:
+            type: str
+            description: Artifact source inventory host; defaults to certificates_source_host.
+        description: Certificates assigned to this consumer. Each entry declares source
+          artifacts, per-file permissions and explicit handlers. Platform paths and name
+          determine destinations.
+      certificates_owner:
+        type: str
+        default: root
+        description: Default file owner, overridable separately on each artifact.
+      certificates_group:
+        type: str
+        default: root
+        description: Default file group, overridable separately on each artifact.
+      certificates_certificate_mode:
+        type: str
+        default: '0644'
+        description: Default certificate mode for managed resources; modes must be quoted
+          octal strings.
+      certificates_private_key_mode:
+        type: str
+        default: '0600'
+        description: Default private key mode for managed resources; modes must be quoted
+          octal strings.
+      certificates_source_host:
+        type: str
+        required: true
+        description: Inventory host holding the existing artifacts. Each deployment may
+          override source_host.
+      certificates_source_become:
+        type: bool
+        default: true
+        description: Read source files as root. Disable when the source connection account
+          can read all required artifacts.

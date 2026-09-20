@@ -1,81 +1,104 @@
 ---
-# role: jomrr.ansible-role-certificates
+# role: certificates
 # file: molecule/default/molecule.yml
 
-scenario:
-  name: default
 dependency:
-  name: galaxy
-  requirements-file: meta/requirements.yml
+  name: "galaxy"
+  options:
+    role-file: "${MOLECULE_PROJECT_DIRECTORY}/collections.yml"
+    requirements-file: "${MOLECULE_PROJECT_DIRECTORY}/collections.yml"
 driver:
-  name: podman
-lint: set -e; ansible-lint
+  name: "podman"
 provisioner:
-  name: ansible
+  name: "ansible"
   config_options:
     defaults:
-      interpreter_python: auto_silent
-      callback_whitelist: profile_tasks, timer, yaml
+      forks: 8
+      interpreter_python: "auto_silent"
+      allow_world_readable_tmpfiles: false
+      callbacks_enabled: "ansible.posix.profile_tasks,ansible.posix.timer"
+      callback_result_format: "yaml"
+      remote_tmp: "/tmp/.ansible/tmp"
     ssh_connection:
       pipelining: true
   log: true
   playbooks:
-    converge: ../resources/playbooks/converge.yml
-    prepare: ../resources/playbooks/prepare.yml
-    verify: ../resources/playbooks/verify.yml
+    converge: "../resources/playbooks/converge.yml"
+    verify: "../resources/playbooks/verify.yml"
+    prepare: "../resources/playbooks/prepare.yml"
+    side_effect: "../resources/playbooks/side_effect.yml"
+    cleanup: "../resources/playbooks/cleanup.yml"
   inventory:
     group_vars:
       all:
-        certificates_run_once: true
-        certificates_host: certificates_ca_host
-        certificates_fetch:
-          - src: /etc/ssl/ca/example/pub/root-ca.pem
-            dest: /tmp/root-ca.pem
-          - src: /etc/ssl/ca/example/pub/intermediate-ca.pem
-            dest: /tmp/intermediate-ca.pem
-          - src: /etc/ssl/ca/example/pub/component-ca.pem
-            dest: /tmp/component-ca.pem
-          - src: /etc/ssl/ca/example/pub/identity-ca.pem
-            dest: /tmp/identity-ca.pem
-          - src: /etc/ssl/ca/example/dist/fritzbox.pem
-            dest: /tmp/fritzbox.pem
-          - src: /etc/ssl/ca/example/dist/fritzbox-fullchain.pem
-            dest: /tmp/fritzbox-fullchain.pem
-          - src: /etc/ssl/ca/example/dist/fritzbox.key
-            dest: /tmp/fritzbox.key
-        certificates_ca_certs:
-          - src: /tmp/root-ca.pem
-            dest: '{{ certificates_ca_trust_dir }}/example-root-ca.crt'
-          - src: /tmp/intermediate-ca.pem
-            dest: '{{ certificates_ca_trust_dir }}/example-intermediate-ca.crt'
-          - src: /tmp/component-ca.pem
-            dest: '{{ certificates_ca_trust_dir }}/example-component-ca.crt'
-          - src: /tmp/identity-ca.pem
-            dest: '{{ certificates_ca_trust_dir }}/example-identity-ca.crt'
-    host_vars:
-      certificates:
-        certificates_certs:
-          - src: /tmp/fritzbox.pem
-            dest: '{{ certificates_tls_dir }}/certs/fritzbox.pem'
-          - src: /tmp/fritzbox-fullchain.pem
-            dest: '{{ certificates_tls_dir }}/certs/fritzbox-fullchain.pem'
-          - src: /tmp/fritzbox.key
-            dest: '{{ certificates_tls_dir }}/private/fritzbox.key'
+        __certificates_test_replacement:
+          name: "18443"
+          certificate:
+            src: "{{ __certificates_test_source }}/replacement.pem"
+          private_key:
+            src: "{{ __certificates_test_source }}/replacement.key"
+          notify:
+            - "activate test web tls"
+          chain:
+            src: "{{ __certificates_test_source }}/ca.pem"
+          fullchain:
+            src: "{{ __certificates_test_source }}/replacement-fullchain.pem"
+        certificates_certificates:
+          - name: "18443"
+            certificate:
+              src: "{{ __certificates_test_source }}/web.pem"
+            private_key:
+              src: "{{ __certificates_test_source }}/web.key"
+            notify:
+              - "activate test web tls"
+            chain:
+              src: "{{ __certificates_test_source }}/ca.pem"
+            fullchain:
+              src: "{{ __certificates_test_source }}/web-fullchain.pem"
+          - name: "19443"
+            certificate:
+              src: "{{ __certificates_test_source }}/mail.pem"
+              mode: "0640"
+            private_key:
+              src: "{{ __certificates_test_source }}/mail.key"
+              owner: "nobody"
+              mode: "0640"
+            notify:
+              - "certificates_test_service : CERTIFICATES | Restart mail TLS"
+        __certificates_test_source: "/tmp/certificates-issuer/{{ inventory_hostname }}"
+        certificates_source_host: "{{ groups['all'] | first }}"
+        certificates_source_become: true
+        __certificates_test_certificate_directories:
+          RedHat: "/etc/pki/tls/certs"
+          Debian: "/etc/ssl/certs"
+          Suse: "/etc/ssl/servercerts"
+        __certificates_test_key_directories:
+          RedHat: "/etc/pki/tls/private"
+          Debian: "/etc/ssl/private"
+          Suse: "/etc/ssl/private"
+        __certificates_test_certificate_directory: "{{ __certificates_test_certificate_directories[ansible_facts.os_family]\
+          \ }}"
+        __certificates_test_key_directory: "{{ __certificates_test_key_directories[ansible_facts.os_family] }}"
 verifier:
-  name: ansible
+  name: "ansible"
+scenario:
+  test_sequence:
+    - "dependency"
+    - "destroy"
+    - "syntax"
+    - "create"
+    - "prepare"
+    - "converge"
+    - "idempotence"
+    - "check"
+    - "verify"
+    - "side_effect"
+    - "cleanup"
+    - "destroy"
+  name: "default"
 platforms:
-  - name: certificates_ca_host
-    image: docker.io/jomrr/molecule-alpine:3.19
+  - name: "certificates"
+    image: "docker.io/${uns:-jomrr}/molecule-${img:-fedora}:${tag:-latest}"
     pre_build_image: true
-    entrypoint: null
-    command: null
-    networks:
-      - name: certificates
-  - name: certificates
-    image: docker.io/${uns:-jomrr}/molecule-${img:-fedora}:${tag:-latest}
-    pre_build_image: true
-    entrypoint: null
-    command: null
-    systemd: true
-    networks:
-      - name: certificates
+    override_command: false
+    systemd: "true"

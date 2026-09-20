@@ -1,0 +1,121 @@
+---
+# role: certificates
+# file: molecule/resources/playbooks/side_effect.yml
+
+- name: CERTIFICATES | Verify rejected candidates and selective activation
+  hosts: all
+  gather_facts: true
+  roles:
+    - role: certificates_test_service
+  tasks:
+    - name: CERTIFICATES | Capture the unrelated service start time
+      ansible.builtin.command:
+        argv: [systemctl, show, certificates-test@19443, --property=ActiveEnterTimestampMonotonic, --value]
+      changed_when: false
+      register: __certificates_test_mail_started
+
+    - name: CERTIFICATES | Reject a mismatching key before installation
+      block:
+        - name: CERTIFICATES | Attempt an invalid deployment
+          ansible.builtin.include_role:
+            name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+          vars:
+            certificates_certificates:
+              - name: '18443'
+                certificate:
+                  src: "{{ __certificates_test_source }}/web.pem"
+                private_key:
+                  src: "{{ __certificates_test_source }}/replacement.key"
+                notify: [activate test web tls]
+
+        - name: CERTIFICATES | Fail if the invalid key was accepted
+          ansible.builtin.fail:
+            msg: Invalid key was accepted.
+      rescue:
+        - name: CERTIFICATES | Verify the key mismatch was detected
+          ansible.builtin.assert:
+            that: "'Certificate and private key do not match' in ansible_failed_result.msg"
+
+    - name: CERTIFICATES | Reject a fullchain with the wrong leaf
+      block:
+        - name: CERTIFICATES | Attempt an inconsistent fullchain
+          ansible.builtin.include_role:
+            name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+          vars:
+            certificates_certificates:
+              - name: '18443'
+                certificate:
+                  src: "{{ __certificates_test_source }}/web.pem"
+                fullchain:
+                  src: "{{ __certificates_test_source }}/replacement.pem"
+                notify: [activate test web tls]
+
+        - name: CERTIFICATES | Fail if the inconsistent fullchain was accepted
+          ansible.builtin.fail:
+            msg: Invalid fullchain was accepted.
+      rescue:
+        - name: CERTIFICATES | Verify the fullchain mismatch was detected
+          ansible.builtin.assert:
+            that: "'Fullchain does not start with the certificate' in ansible_failed_result.msg"
+
+    - name: CERTIFICATES | Verify rejected candidates preserved the installed certificate
+      community.crypto.x509_certificate_info:
+        path: "{{ __certificates_test_certificate_directory }}/18443.crt"
+      register: __certificates_test_preserved
+
+    - name: CERTIFICATES | Verify the original certificate is still installed
+      ansible.builtin.assert:
+        that: __certificates_test_preserved.subject.commonName == inventory_hostname ~ '-web'
+
+    - name: CERTIFICATES | Replace only the web identity
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars:
+        certificates_certificates:
+          - "{{ __certificates_test_replacement }}"
+
+    - name: CERTIFICATES | Activate the changed web identity
+      ansible.builtin.meta: flush_handlers
+
+    - name: CERTIFICATES | Read the activated web identity
+      community.crypto.get_certificate:
+        host: localhost
+        port: 18443
+      register: __certificates_test_reloaded
+
+    - name: CERTIFICATES | Read the unrelated service start time
+      ansible.builtin.command:
+        argv: [systemctl, show, certificates-test@19443, --property=ActiveEnterTimestampMonotonic, --value]
+      changed_when: false
+      register: __certificates_test_mail_unchanged
+
+    - name: CERTIFICATES | Verify selective service activation
+      ansible.builtin.assert:
+        that:
+          - __certificates_test_reloaded.subject.CN == inventory_hostname ~ '-replacement'
+          - __certificates_test_mail_started.stdout == __certificates_test_mail_unchanged.stdout
+
+    - name: CERTIFICATES | Install a public-only certificate
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars:
+        certificates_certificates:
+          - name: public-only
+            certificate:
+              src: "{{ __certificates_test_source }}/mail.pem"
+            notify: []
+
+    - name: CERTIFICATES | Apply empty deployment lists
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars:
+        certificates_certificates: []
+
+    - name: CERTIFICATES | Verify the unlisted public certificate remains
+      community.crypto.x509_certificate_info:
+        path: "{{ __certificates_test_certificate_directory }}/public-only.crt"
+      register: __certificates_test_public
+
+    - name: CERTIFICATES | Verify public-only installation and preservation
+      ansible.builtin.assert:
+        that: __certificates_test_public.subject.commonName == inventory_hostname ~ '-mail'

@@ -1,0 +1,6 @@
+---
+# role: certificates
+# file: vars/Suse.yml
+
+__certificates_certificate_directory: /etc/ssl/servercerts
+__certificates_private_key_directory: /etc/ssl/private

@@ -1,29 +1,51 @@
 ---
-# name: certificates
+# role: certificates
 # file: defaults/main.yml
 
-# run_once switch for molecule tests and if all certs are the same for all hosts
-certificates_run_once: false
+# Inventory host holding the existing certificate artifacts; required.
+# certificates_source_host: pki01
 
-# the source inventory hostname where certificates are fetched from
-certificates_host: "dantooine"
+# Read source artifacts as root; disable when the source account can read them.
+certificates_source_become: true
 
-certificates_fetch: []
-#  - src: "/path/to/certificates"
-#    dest: "/path/to/certificates"
+# Certificates assigned to this consumer host. An empty list preserves files.
+# Each entry requires name, certificate.src and notify. The name is a unique
+# filename stem containing ASCII letters, digits, dots, underscores or hyphens.
+# Sources are absolute paths on certificates_source_host; source_host may
+# override that host for one entry. No CA credentials or issuance data is used.
+#
+# The platform selects the destination directories. Files are named:
+#   certificate: <name>.crt          private_key: <name>.key
+#   chain: <name>-chain.pem          fullchain: <name>-fullchain.pem
+# chain, fullchain and private_key are optional mappings, each requiring src.
+# Every artifact may set its own owner, group and mode. Omitted permissions use
+# the role defaults below. Private keys must be unencrypted and match the leaf.
+#
+# notify is an explicit list of service handler names or listen topics in the
+# same play. An empty list deliberately requests installation without activation.
+certificates_certificates: []
+# certificates_certificates:
+#   - name: web01
+#     certificate:
+#       src: /etc/ssl/example/certs/web01/web01.pem
+#     fullchain:
+#       src: /etc/ssl/example/certs/web01/web01-fullchain.pem
+#     private_key:
+#       src: /etc/ssl/example/certs/web01/web01.key
+#       owner: root
+#       group: root
+#       mode: '0600'
+#     notify:
+#       - 'webserver : WEBSERVER | Activate TLS configuration'
 
-# ca certificates to install on remote hosts.
-# ATTENTION: Suffix must be .crt for os_family Debian (◔_◔)
-certificates_ca_certs:
-  - url: "https://pki.jonas-mauer.de/root-ca.pem"
-    dest: "{{ certificates_ca_trust_dir }}/mauer-root-ca.crt"
-  - url: "https://pki.jonas-mauer.de/intermediate-ca.pem"
-    dest: "{{ certificates_ca_trust_dir }}/mauer-intermediate-ca.crt"
-  - url: "https://pki.jonas-mauer.de/component-ca.pem"
-    dest: "{{ certificates_ca_trust_dir }}/mauer-component-ca.crt"
-  - url: "https://pki.jonas-mauer.de/identity-ca.pem"
-    dest: "{{ certificates_ca_trust_dir }}/mauer-identity-ca.crt"
+# Default file owner; each artifact may override it with owner.
+certificates_owner: root
 
-# certificates to install on remote hosts
-# list of dicts: [{src: "/abs_path", dest: "/abs_path", owner: "root", group: "root", mode: "0644"},...]
-certificates_certs: []
+# Default file group; each artifact may override it with group.
+certificates_group: root
+
+# Default public certificate, chain and fullchain mode; overridable with mode.
+certificates_certificate_mode: '0644'
+
+# Default private key mode; overridable with mode on the private_key mapping.
+certificates_private_key_mode: '0600'

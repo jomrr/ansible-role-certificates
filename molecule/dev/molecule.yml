@@ -1,0 +1,132 @@
+---
+# role: certificates
+# file: molecule/dev/molecule.yml
+
+dependency:
+  name: "galaxy"
+  options:
+    role-file: "${MOLECULE_PROJECT_DIRECTORY}/collections.yml"
+    requirements-file: "${MOLECULE_PROJECT_DIRECTORY}/collections.yml"
+driver:
+  name: "podman"
+provisioner:
+  name: "ansible"
+  config_options:
+    defaults:
+      forks: 8
+      interpreter_python: "auto_silent"
+      allow_world_readable_tmpfiles: false
+      callbacks_enabled: "ansible.builtin.default"
+      callback_result_format: "yaml"
+      remote_tmp: "/tmp/.ansible/tmp"
+      display_ok_hosts: false
+      display_skipped_hosts: false
+      show_task_path_on_failure: true
+    ssh_connection:
+      pipelining: true
+  log: true
+  playbooks:
+    converge: "../resources/playbooks/converge.yml"
+    verify: "../resources/playbooks/verify.yml"
+    prepare: "../resources/playbooks/prepare.yml"
+    side_effect: "../resources/playbooks/side_effect.yml"
+    cleanup: "../resources/playbooks/cleanup.yml"
+  inventory:
+    group_vars:
+      all:
+        __certificates_test_replacement:
+          name: "18443"
+          certificate:
+            src: "{{ __certificates_test_source }}/replacement.pem"
+          private_key:
+            src: "{{ __certificates_test_source }}/replacement.key"
+          notify:
+            - "activate test web tls"
+          chain:
+            src: "{{ __certificates_test_source }}/ca.pem"
+          fullchain:
+            src: "{{ __certificates_test_source }}/replacement-fullchain.pem"
+        certificates_certificates:
+          - name: "18443"
+            certificate:
+              src: "{{ __certificates_test_source }}/web.pem"
+            private_key:
+              src: "{{ __certificates_test_source }}/web.key"
+            notify:
+              - "activate test web tls"
+            chain:
+              src: "{{ __certificates_test_source }}/ca.pem"
+            fullchain:
+              src: "{{ __certificates_test_source }}/web-fullchain.pem"
+          - name: "19443"
+            certificate:
+              src: "{{ __certificates_test_source }}/mail.pem"
+              mode: "0640"
+            private_key:
+              src: "{{ __certificates_test_source }}/mail.key"
+              owner: "nobody"
+              mode: "0640"
+            notify:
+              - "certificates_test_service : CERTIFICATES | Restart mail TLS"
+        __certificates_test_source: "/tmp/certificates-issuer/{{ inventory_hostname }}"
+        certificates_source_host: "{{ groups['all'] | first }}"
+        certificates_source_become: true
+        __certificates_test_certificate_directories:
+          RedHat: "/etc/pki/tls/certs"
+          Debian: "/etc/ssl/certs"
+          Suse: "/etc/ssl/servercerts"
+        __certificates_test_key_directories:
+          RedHat: "/etc/pki/tls/private"
+          Debian: "/etc/ssl/private"
+          Suse: "/etc/ssl/private"
+        __certificates_test_certificate_directory: "{{ __certificates_test_certificate_directories[ansible_facts.os_family]\
+          \ }}"
+        __certificates_test_key_directory: "{{ __certificates_test_key_directories[ansible_facts.os_family] }}"
+verifier:
+  name: "ansible"
+scenario:
+  test_sequence:
+    - "dependency"
+    - "destroy"
+    - "syntax"
+    - "create"
+    - "prepare"
+    - "converge"
+    - "idempotence"
+    - "check"
+    - "verify"
+    - "side_effect"
+    - "cleanup"
+    - "destroy"
+  name: "dev"
+platforms:
+  - name: "almalinux-latest-certificates"
+    image: "docker.io/jomrr/molecule-almalinux:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+  - name: "debian-latest-certificates"
+    image: "docker.io/jomrr/molecule-debian:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+  - name: "fedora-latest-certificates"
+    image: "docker.io/jomrr/molecule-fedora:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+  - name: "opensuse-leap-latest-certificates"
+    image: "docker.io/jomrr/molecule-opensuse-leap:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+  - name: "opensuse-tumbleweed-latest-certificates"
+    image: "docker.io/jomrr/molecule-opensuse-tumbleweed:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+  - name: "ubuntu-latest-certificates"
+    image: "docker.io/jomrr/molecule-ubuntu:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"

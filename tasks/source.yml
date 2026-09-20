@@ -1,0 +1,25 @@
+---
+# role: certificates
+# file: tasks/source.yml
+
+- name: CERTIFICATES | Read public artifacts from the source host
+  become: "{{ certificates_source_become }}"
+  become_user: root
+  ansible.builtin.slurp:
+    src: "{{ __certificates_artifact.value.src }}"
+  delegate_to: "{{ __certificates_item.source_host | default(certificates_source_host) }}"
+  loop: "{{ __certificates_item | dict2items | selectattr('key', 'in', ['certificate', 'chain', 'fullchain']) | list }}"
+  loop_control:
+    loop_var: __certificates_artifact
+    label: "{{ __certificates_artifact.value.src }}"
+  register: __certificates_public_sources
+
+- name: CERTIFICATES | Read the private key from the source host
+  become: "{{ certificates_source_become }}"
+  become_user: root
+  ansible.builtin.slurp:
+    src: "{{ __certificates_item.private_key.src }}"
+  delegate_to: "{{ __certificates_item.source_host | default(certificates_source_host) }}"
+  when: __certificates_item.private_key is defined
+  register: __certificates_private_key_source
+  no_log: true

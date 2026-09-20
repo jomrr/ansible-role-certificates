@@ -1,51 +1,101 @@
-# role: jomrr.certificates
+---
+# role: certificates
 # file: molecule/resources/playbooks/prepare.yml
 
-- name: "PLAYBOOK | Prepare"
-  hosts: certificates_ca_host
-  become: true
+- name: CERTIFICATES | Prepare issuer artifacts and protected transfer
+  hosts: all
   gather_facts: true
-  vars: # using alpine image here
-    certificates_tls_dir: "/etc/ssl"
-    certificates_ca_dir: "{{ certificates_tls_dir }}/ca/example"
-    apache_package_name: "apache2"
-    apache_service_name: "apache2"
-    apache_web_root_dir: "/var/www/localhost/htdocs"
   tasks:
-    - name: "Install packages"
+    - name: CERTIFICATES | Wait for instances
+      ansible.builtin.wait_for_connection:
+        timeout: 60
+
+    - name: CERTIFICATES | Refresh apt metadata
+      become: true
+      become_user: root
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_facts.pkg_mgr == 'apt'
+
+    - name: CERTIFICATES | Install issuer dependencies
+      become: true
+      become_user: root
       ansible.builtin.package:
-        name:
-          - "{{ apache_package_name }}"
-          - git
-          - make
-          - openssl
+        name: python3-cryptography
         state: present
-    - name: "Ensure CA directory exists"
+
+    - name: CERTIFICATES | Create protected issuer directory
+      delegate_to: "{{ certificates_source_host }}"
       ansible.builtin.file:
-        path: "{{ certificates_ca_dir }}"
+        path: "{{ __certificates_test_source }}"
         state: directory
-        mode: "0755"
-    - name: "Clone make-ca repository"
-      ansible.builtin.git:
-        repo: "https://github.com/jomrr/make-ca.git"
-        dest: "{{ certificates_ca_dir }}"
-        version: main
-    - name: "Run CA 'init' target"
-      community.general.make:
-        chdir: "{{ certificates_ca_dir }}"
-        target: init
-    - name: "Run 'fritzbox' target"
-      community.general.make:
-        chdir: "{{ certificates_ca_dir }}"
-        target: certs/component-ca/server/fritzbox
-    - name: "Copy certificates to {{ apache_web_root_dir }}"
+        mode: '0700'
+
+    - name: CERTIFICATES | Generate fixture keys on the issuer
+      delegate_to: "{{ certificates_source_host }}"
+      community.crypto.openssl_privatekey:
+        path: "{{ __certificates_test_source }}/{{ __certificates_test_key.name }}.key"
+        type: "{{ __certificates_test_key.type }}"
+        size: 2048
+        curve: secp256r1
+        mode: '0600'
+      loop:
+        - {name: ca, type: ECC}
+        - {name: web, type: RSA}
+        - {name: replacement, type: ECC}
+        - {name: mail, type: Ed25519}
+      loop_control:
+        loop_var: __certificates_test_key
+        label: "{{ __certificates_test_key.name }}"
+
+    - name: CERTIFICATES | Create fixture certificate requests
+      delegate_to: "{{ certificates_source_host }}"
+      community.crypto.openssl_csr:
+        path: "{{ __certificates_test_source }}/{{ __certificates_test_name }}.csr"
+        privatekey_path: "{{ __certificates_test_source }}/{{ __certificates_test_name }}.key"
+        common_name: "{{ inventory_hostname }}-{{ __certificates_test_name }}"
+        basic_constraints:
+          - "{{ (__certificates_test_name == 'ca') | ternary('CA:TRUE', 'CA:FALSE') }}"
+        basic_constraints_critical: true
+      loop: [ca, web, replacement, mail]
+      loop_control:
+        loop_var: __certificates_test_name
+        label: "{{ __certificates_test_name }}"
+
+    - name: CERTIFICATES | Issue a fixture root CA
+      delegate_to: "{{ certificates_source_host }}"
+      community.crypto.x509_certificate:
+        path: "{{ __certificates_test_source }}/ca.pem"
+        privatekey_path: "{{ __certificates_test_source }}/ca.key"
+        csr_path: "{{ __certificates_test_source }}/ca.csr"
+        provider: selfsigned
+        return_content: true
+      register: __certificates_test_ca
+
+    - name: CERTIFICATES | Issue fixture certificates
+      delegate_to: "{{ certificates_source_host }}"
+      community.crypto.x509_certificate:
+        path: "{{ __certificates_test_source }}/{{ __certificates_test_name }}.pem"
+        privatekey_path: "{{ __certificates_test_source }}/{{ __certificates_test_name }}.key"
+        csr_path: "{{ __certificates_test_source }}/{{ __certificates_test_name }}.csr"
+        provider: ownca
+        return_content: true
+        ownca_path: "{{ __certificates_test_source }}/ca.pem"
+        ownca_privatekey_path: "{{ __certificates_test_source }}/ca.key"
+      loop: [web, replacement, mail]
+      loop_control:
+        loop_var: __certificates_test_name
+        label: "{{ __certificates_test_name }}"
+      register: __certificates_test_leaves
+
+    - name: CERTIFICATES | Assemble fixture fullchains on the source host
+      delegate_to: "{{ certificates_source_host }}"
       ansible.builtin.copy:
-        src: "{{ certificates_ca_dir }}/pub/"
-        dest: "{{ apache_web_root_dir }}/"
-        mode: "0644"
-        remote_src: true
-    - name: "Start webserver"
-      ansible.builtin.service:
-        name: "{{ apache_service_name }}"
-        state: started
-        enabled: true
+        content: "{{ __certificates_test_issued.certificate ~ __certificates_test_ca.certificate }}"
+        dest: "{{ __certificates_test_source }}/{{ __certificates_test_issued.__certificates_test_name }}-fullchain.pem"
+        mode: '0644'
+      loop: "{{ __certificates_test_leaves.results }}"
+      loop_control:
+        loop_var: __certificates_test_issued
+        label: "{{ __certificates_test_issued.__certificates_test_name }}"

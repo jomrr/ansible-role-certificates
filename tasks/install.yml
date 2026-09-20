@@ -1,0 +1,36 @@
+---
+# role: certificates
+# file: tasks/install.yml
+
+- name: CERTIFICATES | Install public certificate artifacts
+  become: true
+  become_user: root
+  ansible.builtin.copy:
+    content: "{{ __certificates_source.content | b64decode }}"
+    dest: >-
+      {{ __certificates_certificate_directory }}/{{ __certificates_item.name }}{{
+         __certificates_public_suffixes[__certificates_source.__certificates_artifact.key] }}
+    owner: "{{ __certificates_source.__certificates_artifact.value.owner | default(certificates_owner) }}"
+    group: "{{ __certificates_source.__certificates_artifact.value.group | default(certificates_group) }}"
+    mode: "{{ __certificates_source.__certificates_artifact.value.mode | default(certificates_certificate_mode) }}"
+    setype: _default
+  loop: "{{ __certificates_public_sources.results }}"
+  loop_control:
+    loop_var: __certificates_source
+    label: "{{ __certificates_item.name }}: {{ __certificates_source.__certificates_artifact.key }}"
+  notify: "{{ __certificates_item.notify }}"
+
+- name: CERTIFICATES | Install private key
+  become: true
+  become_user: root
+  ansible.builtin.copy:
+    content: "{{ __certificates_private_key_source.content | b64decode }}"
+    dest: "{{ __certificates_private_key_directory }}/{{ __certificates_item.name }}.key"
+    owner: "{{ __certificates_item.private_key.owner | default(certificates_owner) }}"
+    group: "{{ __certificates_item.private_key.group | default(certificates_group) }}"
+    mode: "{{ __certificates_item.private_key.mode | default(certificates_private_key_mode) }}"
+    setype: _default
+  when: __certificates_item.private_key is defined
+  notify: "{{ __certificates_item.notify }}"
+  no_log: true
+  diff: false

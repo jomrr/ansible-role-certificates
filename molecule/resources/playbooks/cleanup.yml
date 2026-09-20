@@ -1,0 +1,13 @@
+---
+# role: certificates
+# file: molecule/resources/playbooks/cleanup.yml
+
+- name: CERTIFICATES | Remove source fixtures
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: CERTIFICATES | Remove each consumer's source fixtures
+      ansible.builtin.file:
+        path: "{{ __certificates_test_source }}"
+        state: absent
+      delegate_to: "{{ certificates_source_host }}"

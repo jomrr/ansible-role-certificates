@@ -1,0 +1,6 @@
+---
+# role: certificates
+# file: vars/Debian.yml
+
+__certificates_certificate_directory: /etc/ssl/certs
+__certificates_private_key_directory: /etc/ssl/private
