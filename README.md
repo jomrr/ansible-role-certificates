@@ -57,6 +57,8 @@ Issuance and renewal decisions remain with the issuer.
 collections:
   - name: community.crypto
     version: '>=3.0.0'
+  - name: community.general
+    version: '>=12.0.0'
   - name: ansible.posix
     version: '>=2.0.0'
 ```
@@ -381,4 +383,4 @@ samba_ad_dc_tls_cafile: /etc/pki/tls/certs/dc01-chain.pem
 This project is licensed under the MIT License.
 See [LICENSE](LICENSE) for the full license text.
 
-Copyright (c) 2026 Jonas Mauer.
+Copyright (c) 2024-2026 Jonas Mauer.
