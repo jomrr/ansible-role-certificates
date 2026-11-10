@@ -24,13 +24,6 @@
       paths:
         - "{{ role_path }}/vars"
 
-- name: CERTIFICATES | Install platform TLS directories
-  become: true
-  become_user: root
-  ansible.builtin.package:
-    name: openssl
-    state: present
-
 - name: CERTIFICATES | Ensure the server certificate directory
   become: true
   become_user: root
@@ -42,9 +35,32 @@
     mode: '0755'
     setype: _default
 
+- name: CERTIFICATES | Read existing private directory permissions
+  become: true
+  become_user: root
+  ansible.builtin.stat:
+    path: "{{ __certificates_private_key_directory }}"
+    follow: true
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
+  register: __certificates_private_directory
+
+- name: CERTIFICATES | Ensure the private key directory
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: "{{ __certificates_private_key_directory }}"
+    state: directory
+    owner: "{{ __certificates_private_directory.stat.uid | default('root') }}"
+    group: "{{ __certificates_private_directory.stat.gid | default('root') }}"
+    mode: "{{ __certificates_private_directory.stat.mode | default('0700') }}"
+    setype: _default
+
+# Shared indices keep host-specific certificate data out of include grouping.
 - name: CERTIFICATES | Distribute certificate deployments
   ansible.builtin.include_tasks: certificate.yml
-  loop: "{{ certificates_certificates }}"
+  loop: "{{ range(certificates_certificates | length) | list }}"
   loop_control:
-    loop_var: __certificates_item
-    label: "{{ __certificates_item.name }}"
+    loop_var: __certificates_index
+    label: "{{ __certificates_index }}"

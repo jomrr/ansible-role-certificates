@@ -51,3 +51,18 @@
       loop_control:
         loop_var: __certificates_test_stat
         label: "{{ __certificates_test_stat.stat.path }}"
+
+    - name: CERTIFICATES | Inspect the private directory
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: "{{ __certificates_test_key_directory }}"
+      register: __certificates_test_private_directory
+
+    - name: CERTIFICATES | Verify new and preserved private directory permissions
+      ansible.builtin.assert:
+        that:
+          - __certificates_test_private_directory.stat.isdir
+          - __certificates_test_private_directory.stat.uid == ((ansible_facts.os_family == 'RedHat') | ternary(0, 65534))
+          - __certificates_test_private_directory.stat.gid == ((ansible_facts.os_family == 'RedHat') | ternary(0, 65534))
+          - __certificates_test_private_directory.stat.mode == ((ansible_facts.os_family == 'RedHat') | ternary('0700', '0750'))

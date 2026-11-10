@@ -2,53 +2,39 @@
 # role: certificates
 # file: tasks/assert.yml
 
-- name: CERTIFICATES | Read candidate certificate
-  community.crypto.x509_certificate_info:
-    content: >-
-      {{ (__certificates_public_sources.results
-         | selectattr('__certificates_artifact.key', 'equalto', 'certificate') | first).content | b64decode }}
-  delegate_to: localhost
-  register: __certificates_leaf
+- name: CERTIFICATES | Validate candidate public certificates
+  ansible.builtin.assert:
+    that:
+      - (__certificates_source.content | b64decode | community.crypto.x509_certificate_info).public_key | length > 0
+    quiet: true
+  loop: "{{ __certificates_public_sources.results }}"
+  loop_control:
+    loop_var: __certificates_source
+    label: "{{ __certificates_source.__certificates_artifact.value.src }}"
 
-- name: CERTIFICATES | Read candidate chain
-  community.crypto.x509_certificate_info:
-    content: >-
-      {{ (__certificates_public_sources.results
-         | selectattr('__certificates_artifact.key', 'equalto', 'chain') | first).content | b64decode }}
-  delegate_to: localhost
-  when: __certificates_item.chain is defined
+- name: CERTIFICATES | Match fullchain to certificate
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((__certificates_public_sources.results
+          | selectattr('__certificates_artifact.key', 'equalto', 'certificate') | first).content
+          | b64decode | community.crypto.x509_certificate_info).fingerprints.sha256
+        == ((__certificates_public_sources.results
+          | selectattr('__certificates_artifact.key', 'equalto', 'fullchain') | first).content
+          | b64decode | community.crypto.x509_certificate_info).fingerprints.sha256
+    fail_msg: "Fullchain does not start with the certificate for {{ certificates_certificates[__certificates_index].name }}."
+    quiet: true
+  when: certificates_certificates[__certificates_index].fullchain is defined
 
-- name: CERTIFICATES | Check candidate fullchain
-  when: __certificates_item.fullchain is defined
-  block:
-    - name: CERTIFICATES | Read the fullchain leaf certificate
-      community.crypto.x509_certificate_info:
-        content: >-
-          {{ (__certificates_public_sources.results
-             | selectattr('__certificates_artifact.key', 'equalto', 'fullchain') | first).content | b64decode }}
-      delegate_to: localhost
-      register: __certificates_fullchain
-
-    - name: CERTIFICATES | Match fullchain to certificate
-      ansible.builtin.assert:
-        that:
-          - __certificates_leaf.fingerprints.sha256 == __certificates_fullchain.fingerprints.sha256
-        fail_msg: "Fullchain does not start with the certificate for {{ __certificates_item.name }}."
-        quiet: true
-
-- name: CERTIFICATES | Check candidate private key
-  when: __certificates_item.private_key is defined
-  block:
-    - name: CERTIFICATES | Read candidate private key metadata
-      community.crypto.openssl_privatekey_info:
-        content: "{{ __certificates_private_key_source.content | b64decode }}"
-      delegate_to: localhost
-      register: __certificates_key
-      no_log: true
-
-    - name: CERTIFICATES | Match certificate to private key
-      ansible.builtin.assert:
-        that:
-          - __certificates_leaf.public_key == __certificates_key.public_key
-        fail_msg: "Certificate and private key do not match for {{ __certificates_item.name }}."
-        quiet: true
+- name: CERTIFICATES | Match certificate to private key
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((__certificates_public_sources.results
+          | selectattr('__certificates_artifact.key', 'equalto', 'certificate') | first).content
+          | b64decode | community.crypto.x509_certificate_info).public_key
+        == (__certificates_private_key_source.content | b64decode | community.crypto.openssl_privatekey_info).public_key
+    fail_msg: "Certificate and private key do not match for {{ certificates_certificates[__certificates_index].name }}."
+    quiet: true
+  when: certificates_certificates[__certificates_index].private_key is defined
+  no_log: true

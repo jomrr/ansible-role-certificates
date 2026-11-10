@@ -15,25 +15,38 @@ provisioner:
     defaults:
       forks: 8
       interpreter_python: "auto_silent"
-      allow_world_readable_tmpfiles: false
       callbacks_enabled: "ansible.builtin.default"
       callback_result_format: "yaml"
-      remote_tmp: "/tmp/.ansible/tmp"
+      allow_world_readable_tmpfiles: false
       display_ok_hosts: false
       display_skipped_hosts: false
       show_task_path_on_failure: true
-    ssh_connection:
+    connection:
       pipelining: true
-  log: true
-  playbooks:
-    converge: "../resources/playbooks/converge.yml"
-    verify: "../resources/playbooks/verify.yml"
-    prepare: "../resources/playbooks/prepare.yml"
-    side_effect: "../resources/playbooks/side_effect.yml"
-    cleanup: "../resources/playbooks/cleanup.yml"
   inventory:
     group_vars:
       all:
+        ansible_podman_mount_detection: false
+        __certificates_test_mail_deployment:
+          name: "19443"
+          certificate:
+            src: "{{ __certificates_test_source }}/mail.pem"
+            mode: "0640"
+          private_key:
+            src: "{{ __certificates_test_source }}/mail.key"
+            owner: "nobody"
+            mode: "0640"
+          notify:
+            - "certificates_test_service : CERTIFICATES | Restart mail TLS"
+        __certificates_test_public_deployments:
+          - name: "public-only"
+            certificate:
+              src: "{{ __certificates_test_source }}/mail.pem"
+            notify: []
+          - name: "additional-public"
+            certificate:
+              src: "{{ __certificates_test_source }}/web.pem"
+            notify: []
         __certificates_test_replacement:
           name: "18443"
           certificate:
@@ -58,16 +71,7 @@ provisioner:
               src: "{{ __certificates_test_source }}/ca.pem"
             fullchain:
               src: "{{ __certificates_test_source }}/web-fullchain.pem"
-          - name: "19443"
-            certificate:
-              src: "{{ __certificates_test_source }}/mail.pem"
-              mode: "0640"
-            private_key:
-              src: "{{ __certificates_test_source }}/mail.key"
-              owner: "nobody"
-              mode: "0640"
-            notify:
-              - "certificates_test_service : CERTIFICATES | Restart mail TLS"
+          - "{{ __certificates_test_mail_deployment }}"
         __certificates_test_source: "/tmp/certificates-issuer/{{ inventory_hostname }}"
         certificates_source_host: "{{ groups['all'] | first }}"
         certificates_source_become: true
@@ -82,6 +86,13 @@ provisioner:
         __certificates_test_certificate_directory: "{{ __certificates_test_certificate_directories[ansible_facts.os_family]\
           \ }}"
         __certificates_test_key_directory: "{{ __certificates_test_key_directories[ansible_facts.os_family] }}"
+  log: true
+  playbooks:
+    prepare: "../resources/playbooks/prepare.yml"
+    converge: "../resources/playbooks/converge.yml"
+    verify: "../resources/playbooks/verify.yml"
+    side_effect: "../resources/playbooks/side_effect.yml"
+    cleanup: "../resources/playbooks/cleanup.yml"
 verifier:
   name: "ansible"
 scenario:

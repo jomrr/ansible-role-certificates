@@ -67,12 +67,13 @@
       ansible.builtin.assert:
         that: __certificates_test_preserved.subject.commonName == inventory_hostname ~ '-web'
 
-    - name: CERTIFICATES | Replace only the web identity
+    - name: CERTIFICATES | Deploy changed web and unchanged mail identities together
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
         certificates_certificates:
           - "{{ __certificates_test_replacement }}"
+          - "{{ __certificates_test_mail_deployment }}"
 
     - name: CERTIFICATES | Activate the changed web identity
       ansible.builtin.meta: flush_handlers
@@ -95,15 +96,11 @@
           - __certificates_test_reloaded.subject.CN == inventory_hostname ~ '-replacement'
           - __certificates_test_mail_started.stdout == __certificates_test_mail_unchanged.stdout
 
-    - name: CERTIFICATES | Install a public-only certificate
+    - name: CERTIFICATES | Install different numbers of public-only certificates per host
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
-        certificates_certificates:
-          - name: public-only
-            certificate:
-              src: "{{ __certificates_test_source }}/mail.pem"
-            notify: []
+        certificates_certificates: "{{ __certificates_test_public_deployments[:((ansible_facts.os_family == 'RedHat') | ternary(2, 1))] }}"
 
     - name: CERTIFICATES | Apply empty deployment lists
       ansible.builtin.include_role:
@@ -119,3 +116,12 @@
     - name: CERTIFICATES | Verify public-only installation and preservation
       ansible.builtin.assert:
         that: __certificates_test_public.subject.commonName == inventory_hostname ~ '-mail'
+
+    - name: CERTIFICATES | Inspect the additional public certificate
+      ansible.builtin.stat:
+        path: "{{ __certificates_test_certificate_directory }}/additional-public.crt"
+      register: __certificates_test_additional_public
+
+    - name: CERTIFICATES | Verify the host-specific deployment counts
+      ansible.builtin.assert:
+        that: __certificates_test_additional_public.stat.exists == (ansible_facts.os_family == 'RedHat')

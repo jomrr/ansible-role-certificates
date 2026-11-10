@@ -42,8 +42,8 @@ Issuance and renewal decisions remain with the issuer.
 
 ## Requirements
 
-- The controller's localhost Python interpreter needs cryptography for
-  community.crypto metadata modules.
+- The Python environment running Ansible on the controller needs cryptography
+  for community.crypto metadata filters.
 - The source host must be reachable through Ansible and have the declared
   artifact paths available.
 - Artifact owners and groups must already exist. Service accounts need
@@ -225,16 +225,14 @@ explicit notify list on that certificate entry.
   certificate checks that a PEM certificate is present; this does not verify
   chain order, trust, revocation or remaining validity. Issuance and service
   validation own those decisions.
-- The role installs openssl to obtain the platform TLS directories and ensures
-  the
-  public certificate directory exists as root:root with mode 0755. Existing
-  private-key
-  directory permissions remain unchanged. Service roles manage account
-  membership
-  and access needed to traverse those directories. SUSE service certificates use
-  /etc/ssl/servercerts because /etc/ssl/certs contains the generated trust
-  store.
-  An empty deployment list preserves previously installed certificate files.
+- The role creates the platform TLS directories without installing packages. The
+  public certificate directory is managed as root:root with mode 0755. Existing
+  private-key directory ownership and permissions are preserved; missing
+  private-key directories are created as root:root with mode 0700. Service roles
+  manage account membership and access needed to traverse those directories.
+  SUSE service certificates use /etc/ssl/servercerts because /etc/ssl/certs
+  contains the generated trust store. An empty deployment list preserves
+  previously installed certificate files.
 - Use role-qualified handler names such as webserver : WEBSERVER | Activate TLS
   configuration,
   or a service role's documented listen topic. Load service handlers with roles,

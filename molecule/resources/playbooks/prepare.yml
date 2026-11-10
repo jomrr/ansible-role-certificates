@@ -99,3 +99,22 @@
       loop_control:
         loop_var: __certificates_test_issued
         label: "{{ __certificates_test_issued.__certificates_test_name }}"
+
+    - name: CERTIFICATES | Prepare missing private directories on RedHat consumers
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: "{{ __certificates_test_key_directory }}"
+        state: absent
+      when: ansible_facts.os_family == 'RedHat'
+
+    - name: CERTIFICATES | Prepare existing private directory permissions
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: "{{ __certificates_test_key_directory }}"
+        state: directory
+        owner: '65534'
+        group: '65534'
+        mode: '0750'
+      when: ansible_facts.os_family != 'RedHat'

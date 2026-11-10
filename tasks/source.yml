@@ -7,8 +7,8 @@
   become_user: root
   ansible.builtin.slurp:
     src: "{{ __certificates_artifact.value.src }}"
-  delegate_to: "{{ __certificates_item.source_host | default(certificates_source_host) }}"
-  loop: "{{ __certificates_item | dict2items | selectattr('key', 'in', ['certificate', 'chain', 'fullchain']) | list }}"
+  delegate_to: "{{ certificates_certificates[__certificates_index].source_host | default(certificates_source_host) }}"
+  loop: "{{ certificates_certificates[__certificates_index] | dict2items | selectattr('key', 'in', ['certificate', 'chain', 'fullchain']) | list }}"
   loop_control:
     loop_var: __certificates_artifact
     label: "{{ __certificates_artifact.value.src }}"
@@ -18,8 +18,8 @@
   become: "{{ certificates_source_become }}"
   become_user: root
   ansible.builtin.slurp:
-    src: "{{ __certificates_item.private_key.src }}"
-  delegate_to: "{{ __certificates_item.source_host | default(certificates_source_host) }}"
-  when: __certificates_item.private_key is defined
+    src: "{{ certificates_certificates[__certificates_index].private_key.src }}"
+  delegate_to: "{{ certificates_certificates[__certificates_index].source_host | default(certificates_source_host) }}"
+  when: certificates_certificates[__certificates_index].private_key is defined
   register: __certificates_private_key_source
   no_log: true
