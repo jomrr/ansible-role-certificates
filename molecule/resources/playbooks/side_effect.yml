@@ -100,7 +100,7 @@
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
-        certificates_certificates: "{{ __certificates_test_public_deployments[:((ansible_facts.os_family == 'RedHat') | ternary(2, 1))] }}"
+        certificates_certificates: "{{ __certificates_test_public_deployments[: ((ansible_facts.os_family == 'RedHat') | ternary(2, 1))] }}"
 
     - name: CERTIFICATES | Apply empty deployment lists
       ansible.builtin.include_role:
