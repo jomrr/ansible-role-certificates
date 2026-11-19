@@ -18,11 +18,13 @@
         cache_valid_time: 3600
       when: ansible_facts.pkg_mgr == 'apt'
 
-    - name: CERTIFICATES | Install issuer dependencies
+    - name: CERTIFICATES | Install issuer and fixture service dependencies
       become: true
       become_user: root
       ansible.builtin.package:
-        name: python3-cryptography
+        name:
+          - python3-cryptography
+          - openssl
         state: present
 
     - name: CERTIFICATES | Create protected issuer directory
@@ -48,6 +50,15 @@
       loop_control:
         loop_var: __certificates_test_key
         label: "{{ __certificates_test_key.name }}"
+
+    - name: CERTIFICATES | Encode the same web key as PKCS8 for a key-only update
+      delegate_to: "{{ certificates_source_host }}"
+      community.crypto.openssl_privatekey_convert:
+        src_path: "{{ __certificates_test_source }}/web.key"
+        dest_path: "{{ __certificates_test_source }}/web-pkcs8.key"
+        format: pkcs8
+        mode: '0600'
+      no_log: true
 
     - name: CERTIFICATES | Create fixture certificate requests
       delegate_to: "{{ certificates_source_host }}"
@@ -99,6 +110,39 @@
       loop_control:
         loop_var: __certificates_test_issued
         label: "{{ __certificates_test_issued.__certificates_test_name }}"
+
+    - name: CERTIFICATES | Create the service-owned link directory
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /tmp/certificates-service/tls
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: CERTIFICATES | Prepare a missing service directory
+      ansible.builtin.file:
+        path: /tmp/certificates-missing
+        state: absent
+
+    - name: CERTIFICATES | Create alternate source directories
+      delegate_to: "{{ groups['all'] | last }}"
+      ansible.builtin.file:
+        path: "{{ __certificates_test_source }}"
+        state: directory
+        mode: '0700'
+      when: groups['all'] | length > 1
+
+    - name: CERTIFICATES | Put a different certificate at the same path on the alternate source
+      delegate_to: "{{ groups['all'] | last }}"
+      ansible.builtin.copy:
+        content: >-
+          {{ (__certificates_test_leaves.results
+            | selectattr('__certificates_test_name', 'equalto', 'mail') | first).certificate }}
+        dest: "{{ __certificates_test_source }}/web.pem"
+        mode: '0644'
+      when: groups['all'] | length > 1
 
     - name: CERTIFICATES | Prepare missing private directories on RedHat consumers
       become: true

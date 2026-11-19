@@ -34,7 +34,9 @@
       rescue:
         - name: CERTIFICATES | Verify the key mismatch was detected
           ansible.builtin.assert:
-            that: "'Certificate and private key do not match' in ansible_failed_result.msg"
+            that: >-
+              'Certificate and private key do not match' in
+              (ansible_failed_result.results | map(attribute='msg') | join(' '))
 
     - name: CERTIFICATES | Reject a fullchain with the wrong leaf
       block:
@@ -56,7 +58,9 @@
       rescue:
         - name: CERTIFICATES | Verify the fullchain mismatch was detected
           ansible.builtin.assert:
-            that: "'Fullchain does not start with the certificate' in ansible_failed_result.msg"
+            that: >-
+              'Fullchain does not start with the certificate' in
+              (ansible_failed_result.results | map(attribute='msg') | join(' '))
 
     - name: CERTIFICATES | Verify rejected candidates preserved the installed certificate
       community.crypto.x509_certificate_info:
@@ -66,6 +70,40 @@
     - name: CERTIFICATES | Verify the original certificate is still installed
       ansible.builtin.assert:
         that: __certificates_test_preserved.subject.commonName == inventory_hostname ~ '-web'
+
+    - name: CERTIFICATES | Capture the web service start time before changing only its key file
+      ansible.builtin.command:
+        argv: [systemctl, show, certificates-test@18443, --property=ActiveEnterTimestampMonotonic, --value]
+      changed_when: false
+      register: __certificates_test_web_started
+
+    - name: CERTIFICATES | Change only the web key encoding alongside unchanged mail
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars:
+        certificates_certificates:
+          - >-
+            {{ __certificates_test_web_deployment
+              | combine({'private_key': {'src': __certificates_test_source ~ '/web-pkcs8.key'}}) }}
+          - "{{ __certificates_test_mail_deployment }}"
+
+    - name: CERTIFICATES | Activate the changed key encoding
+      ansible.builtin.meta: flush_handlers
+
+    - name: CERTIFICATES | Read service start times after the key-only update
+      ansible.builtin.command:
+        argv: [systemctl, show, "certificates-test@{{ __certificates_test_port }}", --property=ActiveEnterTimestampMonotonic, --value]
+      changed_when: false
+      loop: [18443, 19443]
+      loop_control:
+        loop_var: __certificates_test_port
+      register: __certificates_test_key_activation
+
+    - name: CERTIFICATES | Verify only the key owner service was activated
+      ansible.builtin.assert:
+        that:
+          - __certificates_test_key_activation.results[0].stdout != __certificates_test_web_started.stdout
+          - __certificates_test_key_activation.results[1].stdout == __certificates_test_mail_started.stdout
 
     - name: CERTIFICATES | Deploy changed web and unchanged mail identities together
       ansible.builtin.include_role:
@@ -95,6 +133,107 @@
         that:
           - __certificates_test_reloaded.subject.CN == inventory_hostname ~ '-replacement'
           - __certificates_test_mail_started.stdout == __certificates_test_mail_unchanged.stdout
+
+    - name: CERTIFICATES | Capture the web service start time before repairing a link
+      ansible.builtin.command:
+        argv: [systemctl, show, certificates-test@18443, --property=ActiveEnterTimestampMonotonic, --value]
+      changed_when: false
+      register: __certificates_test_web_before_link
+
+    - name: CERTIFICATES | Remove only the web key link
+      ansible.builtin.file:
+        path: /tmp/certificates-service/tls/50-site.key
+        state: absent
+
+    - name: CERTIFICATES | Restore only the link alongside unchanged certificate files
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars:
+        certificates_certificates:
+          - "{{ __certificates_test_replacement }}"
+          - "{{ __certificates_test_mail_deployment }}"
+
+    - name: CERTIFICATES | Activate the repaired link
+      ansible.builtin.meta: flush_handlers
+
+    - name: CERTIFICATES | Read service start times after the link-only update
+      ansible.builtin.command:
+        argv: [systemctl, show, "certificates-test@{{ __certificates_test_port }}", --property=ActiveEnterTimestampMonotonic, --value]
+      changed_when: false
+      loop: [18443, 19443]
+      loop_control:
+        loop_var: __certificates_test_port
+      register: __certificates_test_link_activation
+
+    - name: CERTIFICATES | Verify only the link owner service was activated
+      ansible.builtin.assert:
+        that:
+          - __certificates_test_link_activation.results[0].stdout != __certificates_test_web_before_link.stdout
+          - __certificates_test_link_activation.results[1].stdout == __certificates_test_mail_started.stdout
+
+    - name: CERTIFICATES | Reject a missing service directory
+      block:
+        - name: CERTIFICATES | Attempt a link into a missing directory
+          ansible.builtin.include_role:
+            name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+          vars:
+            certificates_certificates:
+              - name: auxiliary
+                certificate:
+                  src: "{{ __certificates_test_source }}/web.pem"
+                links:
+                  - path: /tmp/certificates-missing/50-site.crt
+                    artifact: certificate
+                notify: []
+
+        - name: CERTIFICATES | Fail if the missing service directory was accepted
+          ansible.builtin.fail:
+            msg: The role must not create service directories.
+      rescue:
+        - name: CERTIFICATES | Verify the missing link path appears in the failure
+          ansible.builtin.assert:
+            that: >-
+              '/tmp/certificates-missing/50-site.crt' in
+              (ansible_failed_result.results | map(attribute='msg') | join(' '))
+
+    - name: CERTIFICATES | Verify separate source hosts with identical source paths
+      when: groups['all'] | length > 1
+      block:
+        - name: CERTIFICATES | Install from two source hosts in one batch
+          ansible.builtin.include_role:
+            name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+          vars:
+            certificates_certificates:
+              - name: primary-source
+                certificate:
+                  src: "{{ __certificates_test_source }}/web.pem"
+                notify: []
+              - name: secondary-source
+                source_host: "{{ groups['all'] | last }}"
+                certificate:
+                  src: "{{ __certificates_test_source }}/web.pem"
+                notify: []
+
+        - name: CERTIFICATES | Read the identities from both sources
+          community.crypto.x509_certificate_info:
+            path: "{{ __certificates_test_certificate_directory }}/{{ __certificates_test_origin.name }}.crt"
+          loop:
+            - {name: primary-source, identity: web}
+            - {name: secondary-source, identity: mail}
+          loop_control:
+            loop_var: __certificates_test_origin
+            label: "{{ __certificates_test_origin.name }}"
+          register: __certificates_test_source_identities
+
+        - name: CERTIFICATES | Verify source host overrides do not mix artifact contents
+          ansible.builtin.assert:
+            that: >-
+              __certificates_test_origin_result.subject.commonName ==
+              inventory_hostname ~ '-' ~ __certificates_test_origin_result.__certificates_test_origin.identity
+          loop: "{{ __certificates_test_source_identities.results }}"
+          loop_control:
+            loop_var: __certificates_test_origin_result
+            label: "{{ __certificates_test_origin_result.__certificates_test_origin.name }}"
 
     - name: CERTIFICATES | Install different numbers of public-only certificates per host
       ansible.builtin.include_role:

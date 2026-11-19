@@ -2,13 +2,6 @@
 # role: certificates
 # file: molecule/resources/playbooks/roles/certificates_test_service/tasks/main.yml
 
-- name: CERTIFICATES | Install the fixture TLS server
-  become: true
-  become_user: root
-  ansible.builtin.package:
-    name: openssl
-    state: present
-
 - name: CERTIFICATES | Configure the fixture TLS services
   become: true
   become_user: root

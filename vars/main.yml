@@ -2,7 +2,34 @@
 # role: certificates
 # file: vars/main.yml
 
-__certificates_public_suffixes:
+__certificates_suffixes:
   certificate: .crt
   chain: -chain.pem
   fullchain: -fullchain.pem
+  private_key: .key
+
+# Normalize metadata for source grouping, writing and notifications.
+__certificates_artifacts: >-
+  {%- set artifacts = [] -%}
+  {%- for deployment in certificates_certificates -%}
+  {%- for artifact in deployment | dict2items if artifact.key in __certificates_suffixes -%}
+  {%- set _ = artifacts.append({
+    'name': deployment.name,
+    'artifact': artifact.key,
+    'source_host': deployment.source_host | default(certificates_source_host),
+    'src': artifact.value.src | normpath,
+    'path': ((artifact.key == 'private_key') | ternary(__certificates_private_key_directory, __certificates_certificate_directory))
+      ~ '/' ~ deployment.name ~ __certificates_suffixes[artifact.key],
+    'owner': artifact.value.owner | default(certificates_owner),
+    'group': artifact.value.group | default(certificates_group),
+    'mode': artifact.value.mode | default(
+      (artifact.key == 'private_key') | ternary(certificates_private_key_mode, certificates_certificate_mode))
+  }) -%}
+  {%- endfor -%}
+  {%- endfor -%}
+  {{ artifacts }}
+
+# Keep identical source paths on different issuers separate.
+__certificates_contents: >-
+  {{ dict(__certificates_sources.results | map(attribute='__certificates_source_host')
+    | zip(__certificates_sources.results | map(attribute='content'))) }}

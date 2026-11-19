@@ -97,6 +97,26 @@ argument_specs:
           source_host:
             type: str
             description: Artifact source inventory host; defaults to certificates_source_host.
+          links:
+            type: list
+            elements: dict
+            options:
+              path:
+                type: path
+                required: true
+                description: Absolute symlink path in an existing service directory.
+              artifact:
+                type: str
+                required: true
+                choices:
+                  - certificate
+                  - chain
+                  - fullchain
+                  - private_key
+                description: Declared artifact that the link targets in the platform TLS
+                  directory.
+            description: Optional service symlinks; link changes notify this deployment's
+              handlers. Parent directories must exist.
         description: Certificates assigned to this consumer. Each entry declares source
           artifacts, per-file permissions and explicit handlers. Platform paths and name
           determine destinations.

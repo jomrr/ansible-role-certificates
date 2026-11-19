@@ -2,35 +2,56 @@
 # role: certificates
 # file: tasks/install.yml
 
-- name: CERTIFICATES | Install public certificate artifacts
+- name: CERTIFICATES | Install all checked artifacts
   become: true
   become_user: root
-  ansible.builtin.copy:
-    content: "{{ __certificates_source.content | b64decode }}"
-    dest: >-
-      {{ __certificates_certificate_directory }}/{{ certificates_certificates[__certificates_index].name }}{{
-         __certificates_public_suffixes[__certificates_source.__certificates_artifact.key] }}
-    owner: "{{ __certificates_source.__certificates_artifact.value.owner | default(certificates_owner) }}"
-    group: "{{ __certificates_source.__certificates_artifact.value.group | default(certificates_group) }}"
-    mode: "{{ __certificates_source.__certificates_artifact.value.mode | default(certificates_certificate_mode) }}"
-    setype: _default
-  loop: "{{ __certificates_public_sources.results }}"
-  loop_control:
-    loop_var: __certificates_source
-    label: "{{ certificates_certificates[__certificates_index].name }}: {{ __certificates_source.__certificates_artifact.key }}"
-  notify: "{{ certificates_certificates[__certificates_index].notify }}"
-
-- name: CERTIFICATES | Install private key
-  become: true
-  become_user: root
-  ansible.builtin.copy:
-    content: "{{ __certificates_private_key_source.content | b64decode }}"
-    dest: "{{ __certificates_private_key_directory }}/{{ certificates_certificates[__certificates_index].name }}.key"
-    owner: "{{ certificates_certificates[__certificates_index].private_key.owner | default(certificates_owner) }}"
-    group: "{{ certificates_certificates[__certificates_index].private_key.group | default(certificates_group) }}"
-    mode: "{{ certificates_certificates[__certificates_index].private_key.mode | default(certificates_private_key_mode) }}"
-    setype: _default
-  when: certificates_certificates[__certificates_index].private_key is defined
-  notify: "{{ certificates_certificates[__certificates_index].notify }}"
+  jomrr.general.write_files:
+    files: >-
+      {%- set files = [] -%}
+      {%- for artifact in __certificates_artifacts -%}
+      {%- set _ = files.append({
+        'path': artifact.path,
+        'content': __certificates_contents[artifact.source_host][artifact.src],
+        'owner': artifact.owner,
+        'group': artifact.group,
+        'mode': artifact.mode
+      }) -%}
+      {%- endfor -%}
+      {{ files }}
+  register: __certificates_written
   no_log: true
   diff: false
+
+- name: CERTIFICATES | Link installed artifacts into service directories
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: "{{ __certificates_link.1.path | normpath }}"
+    src: >-
+      {{ (__certificates_artifacts | selectattr('name', 'equalto', __certificates_link.0.name)
+        | selectattr('artifact', 'equalto', __certificates_link.1.artifact) | first).path }}
+    state: link
+    follow: false
+  loop: "{{ certificates_certificates | subelements('links', skip_missing=true) }}"
+  loop_control:
+    loop_var: __certificates_link
+    label: "{{ __certificates_link.1.path }}"
+  register: __certificates_links
+
+# Skip unchanged entries: Ansible loop notifications use the aggregate task change status.
+- name: CERTIFICATES | Notify services for changed certificate deployments
+  ansible.builtin.debug:
+    msg: "Changed certificate deployment: {{ __certificates_deployment.name }}"
+  vars:
+    __certificates_deployment_changed: >-
+      {{ (__certificates_artifacts | selectattr('name', 'equalto', __certificates_deployment.name)
+        | map(attribute='path') | intersect(__certificates_written.paths) | length > 0)
+      or (__certificates_links.results | selectattr('changed')
+        | selectattr('__certificates_link.0.name', 'equalto', __certificates_deployment.name) | list | length > 0) }}
+  loop: "{{ certificates_certificates }}"
+  loop_control:
+    loop_var: __certificates_deployment
+    label: "{{ __certificates_deployment.name }}"
+  when: __certificates_deployment_changed | bool
+  changed_when: __certificates_deployment_changed | bool
+  notify: "{{ __certificates_deployment.notify }}"

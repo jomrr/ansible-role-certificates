@@ -10,4 +10,7 @@
       ansible.builtin.file:
         path: "{{ __certificates_test_source }}"
         state: absent
-      delegate_to: "{{ certificates_source_host }}"
+      delegate_to: "{{ __certificates_test_cleanup_source }}"
+      loop: "{{ [certificates_source_host, groups['all'] | last] | unique }}"
+      loop_control:
+        loop_var: __certificates_test_cleanup_source

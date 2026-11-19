@@ -21,6 +21,10 @@ certificates_source_become: true
 # Every artifact may set its own owner, group and mode. Omitted permissions use
 # the role defaults below. Private keys must be unencrypted and match the leaf.
 #
+# Optional links is a list of {path, artifact}; artifact selects certificate,
+# chain, fullchain or private_key. Absolute link paths need existing parent
+# directories managed by their service roles. Link changes also notify services.
+#
 # notify is an explicit list of service handler names or listen topics in the
 # same play. An empty list deliberately requests installation without activation.
 certificates_certificates: []
@@ -35,6 +39,11 @@ certificates_certificates: []
 #       owner: root
 #       group: root
 #       mode: '0600'
+#     links:
+#       - path: /etc/cockpit/ws-certs.d/50-site.crt
+#         artifact: fullchain
+#       - path: /etc/cockpit/ws-certs.d/50-site.key
+#         artifact: private_key
 #     notify:
 #       - 'webserver : WEBSERVER | Activate TLS configuration'
 

@@ -25,6 +25,8 @@ Issuance and renewal decisions remain with the issuer.
   unencrypted private keys from a source host.
 - Distribution-standard TLS directories and per-artifact file ownership and
   permissions on consumer hosts.
+- Optional service symlinks to installed artifacts in directories managed by the
+  consuming software.
 - Certificate/private-key public-key comparison and fullchain leaf identity
   checks before installation.
 - Notifications to explicitly named handlers or listen topics in the same play,
@@ -42,6 +44,8 @@ Issuance and renewal decisions remain with the issuer.
 
 ## Requirements
 
+- jomrr.general >=1.2.0 provides slurp_files and write_files for batched
+  artifact transfer.
 - The Python environment running Ansible on the controller needs cryptography
   for community.crypto metadata filters.
 - The source host must be reachable through Ansible and have the declared
@@ -55,6 +59,8 @@ Issuance and renewal decisions remain with the issuer.
 
 ```yaml
 collections:
+  - name: jomrr.general
+    version: '>=1.2.0'
   - name: community.crypto
     version: '>=3.0.0'
   - name: community.general
@@ -169,8 +175,9 @@ changes without installing files.
 
 ## Service Behavior
 
-Changed artifact content, ownership, permissions or SELinux type notifies the
-explicit notify list on that certificate entry.
+Changed artifact content, ownership, permissions or service links notify the
+explicit notify list on that certificate entry; unchanged entries do not notify
+handlers.
 
 ### Handlers
 
@@ -194,9 +201,9 @@ explicit notify list on that certificate entry.
   has sufficient access, including an unprivileged localhost artifact source.
 - Only declare end-entity key paths. CA private keys and CA passphrases are not
   distribution inputs.
-- The role requests the SELinux policy default type for installed files.
-  Standard paths do not replace service-specific SELinux or AppArmor access
-  rules.
+- New files receive the default SELinux context; existing file contexts are
+  retained by write_files. Standard paths do not replace service-specific
+  SELinux or AppArmor access rules.
 
 ## Operational Notes
 
@@ -216,11 +223,26 @@ explicit notify list on that certificate entry.
   containing only letters, digits, dots, underscores or hyphens. Destination
   paths
   are derived from the platform and name; there is no separate directory list.
-- Each deployment follows source reads, assertions and installation in that
-  order. Its supplied private key must match the leaf certificate, and its
-  supplied fullchain must start with that exact certificate. Installation uses
-  the same bytes that were checked. RSA, EC and EdDSA keys are compared through
-  their public keys. Without private_key, only public artifacts are installed.
+- All deployments are read and checked before any artifact is installed. Each
+  supplied private key must match the leaf certificate, and its supplied
+  fullchain must start with that exact certificate. Installation uses the same
+  bytes that were checked. RSA, EC and EdDSA keys are compared through their
+  public keys. Without private_key, only public artifacts are installed.
+- Each consumer reads all required artifacts in one slurp_files call per
+  distinct source host and installs all artifacts in one write_files call.
+  Directory tasks, optional links and service handlers are additional calls.
+  Source paths shared within a source host are read once; identical paths on
+  different hosts remain separate.
+- Optional links entries contain path and artifact. The artifact is certificate,
+  chain, fullchain or private_key and must be declared by that deployment. Link
+  paths must be absolute, unique and different from installed artifact paths.
+  Parent directories must already exist; a missing directory fails with the link
+  path in the error. The role does not create service directories or replace
+  regular files with links. Link changes notify the deployment's handlers even
+  when certificate contents are unchanged.
+- write_files replaces regular destination files atomically per file and rejects
+  symbolic links at artifact destinations. Use links to expose installed
+  artifacts at service-specific paths.
 - Issuer chains and fullchains are installed unchanged. Reading their first
   certificate checks that a PEM certificate is present; this does not verify
   chain order, trust, revocation or remaining validity. Issuance and service
@@ -331,6 +353,30 @@ obtains the artifacts from pki01.
     - name: Activate validated changes
       ansible.builtin.meta: flush_handlers
 
+```
+
+### Link certificates into Cockpit
+
+The Cockpit role creates /etc/cockpit/ws-certs.d and loads its activation
+handler before this deployment. The certificate files remain in the
+platform TLS directories.
+
+```yaml
+certificates_source_host: pki01
+certificates_certificates:
+  - name: site
+    certificate:
+      src: /srv/tls/site.pem
+    fullchain:
+      src: /srv/tls/site-fullchain.pem
+    private_key:
+      src: /srv/tls/site.key
+    links:
+      - path: /etc/cockpit/ws-certs.d/50-site.crt
+        artifact: fullchain
+      - path: /etc/cockpit/ws-certs.d/50-site.key
+        artifact: private_key
+    notify: ['activate cockpit tls']
 ```
 
 ### Use standard TLS paths with Samba AD DC

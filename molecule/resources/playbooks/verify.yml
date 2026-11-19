@@ -30,16 +30,60 @@
       ansible.builtin.stat:
         path: "{{ __certificates_test_resource.path }}"
       loop:
-        - {path: "{{ __certificates_test_certificate_directory }}/18443.crt", mode: '0644', owner: root, group: root}
-        - {path: "{{ __certificates_test_certificate_directory }}/18443-chain.pem", mode: '0644', owner: root, group: root}
-        - {path: "{{ __certificates_test_certificate_directory }}/18443-fullchain.pem", mode: '0644', owner: root, group: root}
-        - {path: "{{ __certificates_test_key_directory }}/18443.key", mode: '0600', owner: root, group: root}
-        - {path: "{{ __certificates_test_certificate_directory }}/19443.crt", mode: '0640', owner: root, group: root}
-        - {path: "{{ __certificates_test_key_directory }}/19443.key", mode: '0640', owner: nobody, group: root}
+        - path: "{{ __certificates_test_certificate_directory }}/18443.crt"
+          src: "{{ __certificates_test_source }}/web.pem"
+          mode: '0644'
+          owner: root
+          group: root
+        - path: "{{ __certificates_test_certificate_directory }}/18443-chain.pem"
+          src: "{{ __certificates_test_source }}/ca.pem"
+          mode: '0644'
+          owner: root
+          group: root
+        - path: "{{ __certificates_test_certificate_directory }}/18443-fullchain.pem"
+          src: "{{ __certificates_test_source }}/web-fullchain.pem"
+          mode: '0644'
+          owner: root
+          group: root
+        - path: "{{ __certificates_test_key_directory }}/18443.key"
+          src: "{{ __certificates_test_source }}/web.key"
+          mode: '0600'
+          owner: root
+          group: root
+        - path: "{{ __certificates_test_certificate_directory }}/19443.crt"
+          src: "{{ __certificates_test_source }}/mail.pem"
+          mode: '0640'
+          owner: root
+          group: root
+        - path: "{{ __certificates_test_key_directory }}/19443.key"
+          src: "{{ __certificates_test_source }}/mail.key"
+          mode: '0640'
+          owner: nobody
+          group: root
       loop_control:
         loop_var: __certificates_test_resource
         label: "{{ __certificates_test_resource.path }}"
       register: __certificates_test_stats
+
+    - name: CERTIFICATES | Inspect the corresponding source artifacts
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: "{{ __certificates_test_installed.__certificates_test_resource.src }}"
+      delegate_to: "{{ certificates_source_host }}"
+      loop: "{{ __certificates_test_stats.results }}"
+      loop_control:
+        loop_var: __certificates_test_installed
+        label: "{{ __certificates_test_installed.stat.path }}"
+      register: __certificates_test_source_stats
+
+    - name: CERTIFICATES | Verify installed artifact contents match their sources
+      ansible.builtin.assert:
+        that: __certificates_test_source_stat.stat.checksum == __certificates_test_source_stat.__certificates_test_installed.stat.checksum
+      loop: "{{ __certificates_test_source_stats.results }}"
+      loop_control:
+        loop_var: __certificates_test_source_stat
+        label: "{{ __certificates_test_source_stat.stat.path }}"
 
     - name: CERTIFICATES | Verify installed access permissions
       ansible.builtin.assert:
@@ -51,6 +95,39 @@
       loop_control:
         loop_var: __certificates_test_stat
         label: "{{ __certificates_test_stat.stat.path }}"
+
+    - name: CERTIFICATES | Inspect service symlinks
+      ansible.builtin.stat:
+        path: "{{ __certificates_test_link.path }}"
+        follow: false
+      loop:
+        - path: /tmp/certificates-service/tls/50-site.crt
+          target: "{{ __certificates_test_certificate_directory }}/18443-fullchain.pem"
+        - path: /tmp/certificates-service/tls/50-site.key
+          target: "{{ __certificates_test_key_directory }}/18443.key"
+      loop_control:
+        loop_var: __certificates_test_link
+        label: "{{ __certificates_test_link.path }}"
+      register: __certificates_test_link_stats
+
+    - name: CERTIFICATES | Verify service symlink targets
+      ansible.builtin.assert:
+        that:
+          - __certificates_test_link_stat.stat.islnk
+          - __certificates_test_link_stat.stat.lnk_source == __certificates_test_link_stat.__certificates_test_link.target
+      loop: "{{ __certificates_test_link_stats.results }}"
+      loop_control:
+        loop_var: __certificates_test_link_stat
+        label: "{{ __certificates_test_link_stat.stat.path }}"
+
+    - name: CERTIFICATES | Read the third deployed certificate
+      community.crypto.x509_certificate_info:
+        path: "{{ __certificates_test_certificate_directory }}/auxiliary.crt"
+      register: __certificates_test_auxiliary
+
+    - name: CERTIFICATES | Verify the third deployed certificate
+      ansible.builtin.assert:
+        that: __certificates_test_auxiliary.subject.commonName == inventory_hostname ~ '-web'
 
     - name: CERTIFICATES | Inspect the private directory
       become: true

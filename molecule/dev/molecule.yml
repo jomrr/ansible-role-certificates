@@ -48,6 +48,7 @@ provisioner:
               src: "{{ __certificates_test_source }}/web.pem"
             notify: []
         __certificates_test_replacement:
+          links: "{{ __certificates_test_web_links }}"
           name: "18443"
           certificate:
             src: "{{ __certificates_test_source }}/replacement.pem"
@@ -59,19 +60,31 @@ provisioner:
             src: "{{ __certificates_test_source }}/ca.pem"
           fullchain:
             src: "{{ __certificates_test_source }}/replacement-fullchain.pem"
+        __certificates_test_web_links:
+          - path: "/tmp/certificates-service/tls/50-site.crt"
+            artifact: "fullchain"
+          - path: "/tmp/certificates-service/tls/50-site.key"
+            artifact: "private_key"
+        __certificates_test_web_deployment:
+          name: "18443"
+          certificate:
+            src: "{{ __certificates_test_source }}/web.pem"
+          private_key:
+            src: "{{ __certificates_test_source }}/web.key"
+          notify:
+            - "activate test web tls"
+          chain:
+            src: "{{ __certificates_test_source }}/ca.pem"
+          fullchain:
+            src: "{{ __certificates_test_source }}/web-fullchain.pem"
+          links: "{{ __certificates_test_web_links }}"
         certificates_certificates:
-          - name: "18443"
+          - "{{ __certificates_test_web_deployment }}"
+          - "{{ __certificates_test_mail_deployment }}"
+          - name: "auxiliary"
             certificate:
               src: "{{ __certificates_test_source }}/web.pem"
-            private_key:
-              src: "{{ __certificates_test_source }}/web.key"
-            notify:
-              - "activate test web tls"
-            chain:
-              src: "{{ __certificates_test_source }}/ca.pem"
-            fullchain:
-              src: "{{ __certificates_test_source }}/web-fullchain.pem"
-          - "{{ __certificates_test_mail_deployment }}"
+            notify: []
         __certificates_test_source: "/tmp/certificates-issuer/{{ inventory_hostname }}"
         certificates_source_host: "{{ groups['all'] | first }}"
         certificates_source_become: true
