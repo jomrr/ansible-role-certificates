@@ -1,0 +1,26 @@
+---
+# role: certificates
+# file: tasks/activate.yml
+
+- name: CERTIFICATES | Link artifacts into service directories
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: "{{ __certificates_link.path }}"
+    src: "{{ __certificates_destinations[__certificates_link.artifact] }}"
+    state: link
+    follow: false
+  loop: "{{ __certificates_certificate.links | default([]) }}"
+  loop_control:
+    loop_var: __certificates_link
+    label: "{{ __certificates_link.path }}"
+  notify: "{{ __certificates_certificate.notify }}"
+
+- name: CERTIFICATES | Notify services for a changed certificate
+  ansible.builtin.debug:
+    msg: "Changed certificate: {{ __certificates_certificate.name }}"
+  when: >-
+    __certificates_written.paths | intersect(__certificates_certificate | intersect(__certificates_suffixes)
+      | map('extract', __certificates_destinations)) | length > 0
+  changed_when: true
+  notify: "{{ __certificates_certificate.notify }}"

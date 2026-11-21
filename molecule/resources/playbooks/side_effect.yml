@@ -10,7 +10,12 @@
   tasks:
     - name: CERTIFICATES | Capture the unrelated service start time
       ansible.builtin.command:
-        argv: [systemctl, show, certificates-test@19443, --property=ActiveEnterTimestampMonotonic, --value]
+        argv:
+          - systemctl
+          - show
+          - certificates-test@19443
+          - --property=ActiveEnterTimestampMonotonic
+          - --value
       changed_when: false
       register: __certificates_test_mail_started
 
@@ -73,7 +78,12 @@
 
     - name: CERTIFICATES | Capture the web service start time before changing only its key file
       ansible.builtin.command:
-        argv: [systemctl, show, certificates-test@18443, --property=ActiveEnterTimestampMonotonic, --value]
+        argv:
+          - systemctl
+          - show
+          - certificates-test@18443
+          - --property=ActiveEnterTimestampMonotonic
+          - --value
       changed_when: false
       register: __certificates_test_web_started
 
@@ -83,16 +93,21 @@
       vars:
         certificates_certificates:
           - >-
-            {{ __certificates_test_web_deployment
-              | combine({'private_key': {'src': __certificates_test_source ~ '/web-pkcs8.key'}}) }}
-          - "{{ __certificates_test_mail_deployment }}"
+            {{ __certificates_test_web_certificate | combine(
+              {'private_key': {'src': __certificates_test_source ~ '/web-pkcs8.key'}}, recursive=true) }}
+          - '{{ __certificates_test_mail_certificate }}'
 
     - name: CERTIFICATES | Activate the changed key encoding
       ansible.builtin.meta: flush_handlers
 
     - name: CERTIFICATES | Read service start times after the key-only update
       ansible.builtin.command:
-        argv: [systemctl, show, "certificates-test@{{ __certificates_test_port }}", --property=ActiveEnterTimestampMonotonic, --value]
+        argv:
+          - systemctl
+          - show
+          - "certificates-test@{{ __certificates_test_port }}"
+          - --property=ActiveEnterTimestampMonotonic
+          - --value
       changed_when: false
       loop: [18443, 19443]
       loop_control:
@@ -110,8 +125,8 @@
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
         certificates_certificates:
-          - "{{ __certificates_test_replacement }}"
-          - "{{ __certificates_test_mail_deployment }}"
+          - '{{ __certificates_test_replacement_certificate }}'
+          - '{{ __certificates_test_mail_certificate }}'
 
     - name: CERTIFICATES | Activate the changed web identity
       ansible.builtin.meta: flush_handlers
@@ -124,19 +139,90 @@
 
     - name: CERTIFICATES | Read the unrelated service start time
       ansible.builtin.command:
-        argv: [systemctl, show, certificates-test@19443, --property=ActiveEnterTimestampMonotonic, --value]
+        argv:
+          - systemctl
+          - show
+          - certificates-test@19443
+          - --property=ActiveEnterTimestampMonotonic
+          - --value
       changed_when: false
       register: __certificates_test_mail_unchanged
+
+    - name: CERTIFICATES | Read the renewed key ACL
+      ansible.posix.acl:
+        path: "{{ __certificates_test_key_directory }}/18443.key"
+        state: query
+      register: __certificates_test_renewed_acl
 
     - name: CERTIFICATES | Verify selective service activation
       ansible.builtin.assert:
         that:
           - __certificates_test_reloaded.subject.CN == inventory_hostname ~ '-replacement'
+          - "'user:60026:r--' in __certificates_test_renewed_acl.acl"
+          - "'mask::r--' in __certificates_test_renewed_acl.acl"
+          - "'group::---' in __certificates_test_renewed_acl.acl"
           - __certificates_test_mail_started.stdout == __certificates_test_mail_unchanged.stdout
+
+    - name: CERTIFICATES | Capture the web start time before an ACL-only repair
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - certificates-test@18443
+          - --property=ActiveEnterTimestampMonotonic
+          - --value
+      changed_when: false
+      register: __certificates_test_web_before_acl
+
+    - name: CERTIFICATES | Remove one named key ACL without changing the mask
+      become: true
+      become_user: root
+      ansible.posix.acl:
+        path: "{{ __certificates_test_key_directory }}/18443.key"
+        etype: user
+        entity: '60026'
+        state: absent
+        recalculate_mask: no_mask
+
+    - name: CERTIFICATES | Repair the ACL alongside unchanged mail
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars:
+        certificates_certificates:
+          - '{{ __certificates_test_replacement_certificate }}'
+          - '{{ __certificates_test_mail_certificate }}'
+
+    - name: CERTIFICATES | Activate the repaired ACL
+      ansible.builtin.meta: flush_handlers
+
+    - name: CERTIFICATES | Read service start times after the ACL-only update
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - "certificates-test@{{ __certificates_test_port }}"
+          - --property=ActiveEnterTimestampMonotonic
+          - --value
+      changed_when: false
+      loop: [18443, 19443]
+      loop_control:
+        loop_var: __certificates_test_port
+      register: __certificates_test_acl_activation
+
+    - name: CERTIFICATES | Verify only the ACL owner service was activated
+      ansible.builtin.assert:
+        that:
+          - __certificates_test_acl_activation.results[0].stdout != __certificates_test_web_before_acl.stdout
+          - __certificates_test_acl_activation.results[1].stdout == __certificates_test_mail_started.stdout
 
     - name: CERTIFICATES | Capture the web service start time before repairing a link
       ansible.builtin.command:
-        argv: [systemctl, show, certificates-test@18443, --property=ActiveEnterTimestampMonotonic, --value]
+        argv:
+          - systemctl
+          - show
+          - certificates-test@18443
+          - --property=ActiveEnterTimestampMonotonic
+          - --value
       changed_when: false
       register: __certificates_test_web_before_link
 
@@ -150,15 +236,20 @@
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
         certificates_certificates:
-          - "{{ __certificates_test_replacement }}"
-          - "{{ __certificates_test_mail_deployment }}"
+          - '{{ __certificates_test_replacement_certificate }}'
+          - '{{ __certificates_test_mail_certificate }}'
 
     - name: CERTIFICATES | Activate the repaired link
       ansible.builtin.meta: flush_handlers
 
     - name: CERTIFICATES | Read service start times after the link-only update
       ansible.builtin.command:
-        argv: [systemctl, show, "certificates-test@{{ __certificates_test_port }}", --property=ActiveEnterTimestampMonotonic, --value]
+        argv:
+          - systemctl
+          - show
+          - "certificates-test@{{ __certificates_test_port }}"
+          - --property=ActiveEnterTimestampMonotonic
+          - --value
       changed_when: false
       loop: [18443, 19443]
       loop_control:
@@ -196,50 +287,12 @@
               '/tmp/certificates-missing/50-site.crt' in
               (ansible_failed_result.results | map(attribute='msg') | join(' '))
 
-    - name: CERTIFICATES | Verify separate source hosts with identical source paths
-      when: groups['all'] | length > 1
-      block:
-        - name: CERTIFICATES | Install from two source hosts in one batch
-          ansible.builtin.include_role:
-            name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
-          vars:
-            certificates_certificates:
-              - name: primary-source
-                certificate:
-                  src: "{{ __certificates_test_source }}/web.pem"
-                notify: []
-              - name: secondary-source
-                source_host: "{{ groups['all'] | last }}"
-                certificate:
-                  src: "{{ __certificates_test_source }}/web.pem"
-                notify: []
-
-        - name: CERTIFICATES | Read the identities from both sources
-          community.crypto.x509_certificate_info:
-            path: "{{ __certificates_test_certificate_directory }}/{{ __certificates_test_origin.name }}.crt"
-          loop:
-            - {name: primary-source, identity: web}
-            - {name: secondary-source, identity: mail}
-          loop_control:
-            loop_var: __certificates_test_origin
-            label: "{{ __certificates_test_origin.name }}"
-          register: __certificates_test_source_identities
-
-        - name: CERTIFICATES | Verify source host overrides do not mix artifact contents
-          ansible.builtin.assert:
-            that: >-
-              __certificates_test_origin_result.subject.commonName ==
-              inventory_hostname ~ '-' ~ __certificates_test_origin_result.__certificates_test_origin.identity
-          loop: "{{ __certificates_test_source_identities.results }}"
-          loop_control:
-            loop_var: __certificates_test_origin_result
-            label: "{{ __certificates_test_origin_result.__certificates_test_origin.name }}"
-
     - name: CERTIFICATES | Install different numbers of public-only certificates per host
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
-        certificates_certificates: "{{ __certificates_test_public_deployments[: ((ansible_facts.os_family == 'RedHat') | ternary(2, 1))] }}"
+        certificates_certificates: "{{ __certificates_test_public_certificates[: ((ansible_facts.os_family == 'RedHat')
+          | ternary(2, 1))] }}"
 
     - name: CERTIFICATES | Apply empty deployment lists
       ansible.builtin.include_role:

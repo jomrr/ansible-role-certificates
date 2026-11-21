@@ -32,12 +32,12 @@
       loop:
         - path: "{{ __certificates_test_certificate_directory }}/18443.crt"
           src: "{{ __certificates_test_source }}/web.pem"
-          mode: '0644'
+          mode: '0664'
           owner: root
           group: root
         - path: "{{ __certificates_test_certificate_directory }}/18443-chain.pem"
           src: "{{ __certificates_test_source }}/ca.pem"
-          mode: '0644'
+          mode: '0664'
           owner: root
           group: root
         - path: "{{ __certificates_test_certificate_directory }}/18443-fullchain.pem"
@@ -47,7 +47,7 @@
           group: root
         - path: "{{ __certificates_test_key_directory }}/18443.key"
           src: "{{ __certificates_test_source }}/web.key"
-          mode: '0600'
+          mode: '0640'
           owner: root
           group: root
         - path: "{{ __certificates_test_certificate_directory }}/19443.crt"
@@ -79,7 +79,8 @@
 
     - name: CERTIFICATES | Verify installed artifact contents match their sources
       ansible.builtin.assert:
-        that: __certificates_test_source_stat.stat.checksum == __certificates_test_source_stat.__certificates_test_installed.stat.checksum
+        that: __certificates_test_source_stat.stat.checksum ==
+          __certificates_test_source_stat.__certificates_test_installed.stat.checksum
       loop: "{{ __certificates_test_source_stats.results }}"
       loop_control:
         loop_var: __certificates_test_source_stat
@@ -95,6 +96,42 @@
       loop_control:
         loop_var: __certificates_test_stat
         label: "{{ __certificates_test_stat.stat.path }}"
+
+    - name: CERTIFICATES | Read numeric access ACLs
+      become: true
+      become_user: root
+      ansible.builtin.command:
+        argv:
+          - getfacl
+          - --absolute-names
+          - --omit-header
+          - --numeric
+          - "{{ __certificates_test_acl.path }}"
+      changed_when: false
+      loop:
+        - path: "{{ __certificates_test_certificate_directory }}/18443.crt"
+          entries: ['user:65534:rw-']
+        - path: "{{ __certificates_test_certificate_directory }}/18443-chain.pem"
+          entries: ['group:60027:rw-']
+        - path: "{{ __certificates_test_certificate_directory }}/18443-fullchain.pem"
+          entries: ['user:60026:r--']
+        - path: "{{ __certificates_test_key_directory }}/18443.key"
+          entries: ['user::rw-', 'user:26:r--', 'user:60026:r--', 'group::---', 'group:60027:r--', 'mask::r--', 'other::---']
+      loop_control:
+        loop_var: __certificates_test_acl
+        label: "{{ __certificates_test_acl.path }}"
+      register: __certificates_test_acl_state
+
+    - name: CERTIFICATES | Verify configured artifact ACLs
+      ansible.builtin.assert:
+        that: >-
+          __certificates_test_acl_result.__certificates_test_acl.entries
+          | difference(__certificates_test_acl_result.stdout_lines) | length == 0
+        quiet: true
+      loop: "{{ __certificates_test_acl_state.results }}"
+      loop_control:
+        loop_var: __certificates_test_acl_result
+        label: "{{ __certificates_test_acl_result.__certificates_test_acl.path }}"
 
     - name: CERTIFICATES | Inspect service symlinks
       ansible.builtin.stat:
@@ -114,7 +151,8 @@
       ansible.builtin.assert:
         that:
           - __certificates_test_link_stat.stat.islnk
-          - __certificates_test_link_stat.stat.lnk_source == __certificates_test_link_stat.__certificates_test_link.target
+          - __certificates_test_link_stat.stat.lnk_source ==
+            __certificates_test_link_stat.__certificates_test_link.target
       loop: "{{ __certificates_test_link_stats.results }}"
       loop_control:
         loop_var: __certificates_test_link_stat
@@ -140,6 +178,9 @@
       ansible.builtin.assert:
         that:
           - __certificates_test_private_directory.stat.isdir
-          - __certificates_test_private_directory.stat.uid == ((ansible_facts.os_family == 'RedHat') | ternary(0, 65534))
-          - __certificates_test_private_directory.stat.gid == ((ansible_facts.os_family == 'RedHat') | ternary(0, 65534))
-          - __certificates_test_private_directory.stat.mode == ((ansible_facts.os_family == 'RedHat') | ternary('0700', '0750'))
+          - __certificates_test_private_directory.stat.uid == ((ansible_facts.os_family == 'RedHat') | ternary(0,
+            65534))
+          - __certificates_test_private_directory.stat.gid == ((ansible_facts.os_family == 'RedHat') | ternary(0,
+            65534))
+          - __certificates_test_private_directory.stat.mode == ((ansible_facts.os_family == 'RedHat') |
+            ternary('0700', '0750'))

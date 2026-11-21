@@ -126,24 +126,6 @@
         path: /tmp/certificates-missing
         state: absent
 
-    - name: CERTIFICATES | Create alternate source directories
-      delegate_to: "{{ groups['all'] | last }}"
-      ansible.builtin.file:
-        path: "{{ __certificates_test_source }}"
-        state: directory
-        mode: '0700'
-      when: groups['all'] | length > 1
-
-    - name: CERTIFICATES | Put a different certificate at the same path on the alternate source
-      delegate_to: "{{ groups['all'] | last }}"
-      ansible.builtin.copy:
-        content: >-
-          {{ (__certificates_test_leaves.results
-            | selectattr('__certificates_test_name', 'equalto', 'mail') | first).certificate }}
-        dest: "{{ __certificates_test_source }}/web.pem"
-        mode: '0644'
-      when: groups['all'] | length > 1
-
     - name: CERTIFICATES | Prepare missing private directories on RedHat consumers
       become: true
       become_user: root

@@ -24,64 +24,14 @@ provisioner:
     group_vars:
       all:
         ansible_podman_mount_detection: false
-        __certificates_test_mail_deployment:
-          name: "19443"
-          certificate:
-            src: "{{ __certificates_test_source }}/mail.pem"
-            mode: "0640"
-          private_key:
-            src: "{{ __certificates_test_source }}/mail.key"
-            owner: "nobody"
-            mode: "0640"
-          notify:
-            - "certificates_test_service : CERTIFICATES | Restart mail TLS"
-        __certificates_test_public_deployments:
-          - name: "public-only"
-            certificate:
-              src: "{{ __certificates_test_source }}/mail.pem"
-            notify: []
-          - name: "additional-public"
-            certificate:
-              src: "{{ __certificates_test_source }}/web.pem"
-            notify: []
-        __certificates_test_replacement:
-          links: "{{ __certificates_test_web_links }}"
-          name: "18443"
-          certificate:
-            src: "{{ __certificates_test_source }}/replacement.pem"
-          private_key:
-            src: "{{ __certificates_test_source }}/replacement.key"
-          notify:
-            - "activate test web tls"
-          chain:
-            src: "{{ __certificates_test_source }}/ca.pem"
-          fullchain:
-            src: "{{ __certificates_test_source }}/replacement-fullchain.pem"
-        __certificates_test_web_links:
-          - path: "/tmp/certificates-service/tls/50-site.crt"
-            artifact: "fullchain"
-          - path: "/tmp/certificates-service/tls/50-site.key"
-            artifact: "private_key"
-        __certificates_test_web_deployment:
-          name: "18443"
-          certificate:
-            src: "{{ __certificates_test_source }}/web.pem"
-          private_key:
-            src: "{{ __certificates_test_source }}/web.key"
-          notify:
-            - "activate test web tls"
-          chain:
-            src: "{{ __certificates_test_source }}/ca.pem"
-          fullchain:
-            src: "{{ __certificates_test_source }}/web-fullchain.pem"
-          links: "{{ __certificates_test_web_links }}"
-        certificates_certificates:
-          - "{{ __certificates_test_web_deployment }}"
-          - "{{ __certificates_test_mail_deployment }}"
-          - name: "auxiliary"
-            certificate:
-              src: "{{ __certificates_test_source }}/web.pem"
-            notify: []
+        __certificates_test_key_acl:
+          - "user::rw-"
+          - "user:26:r--"
+          - "user:60026:r--"
+          - "group::---"
+          - "group:60027:r--"
+          - "mask::r--"
+          - "other::---"
         __certificates_test_source: "/tmp/certificates-issuer/{{ inventory_hostname }}"
         certificates_source_host: "{{ groups['all'] | first }}"
         certificates_source_become: true
@@ -96,6 +46,105 @@ provisioner:
         __certificates_test_certificate_directory: "{{ __certificates_test_certificate_directories[ansible_facts.os_family]\
           \ }}"
         __certificates_test_key_directory: "{{ __certificates_test_key_directories[ansible_facts.os_family] }}"
+        __certificates_test_web_certificate:
+          name: "18443"
+          certificate:
+            src: "{{ __certificates_test_source }}/web.pem"
+            acl:
+              - "user::rw-"
+              - "user:nobody:rw-"
+              - "group::r--"
+              - "other::r--"
+          chain:
+            src: "{{ __certificates_test_source }}/ca.pem"
+            acl:
+              - "user::rw-"
+              - "group::r--"
+              - "group:60027:rw-"
+              - "other::r--"
+          fullchain:
+            src: "{{ __certificates_test_source }}/web-fullchain.pem"
+            acl:
+              - "user::rw-"
+              - "user:60026:r--"
+              - "group::r--"
+              - "other::r--"
+          private_key:
+            src: "{{ __certificates_test_source }}/web.key"
+            acl: "{{ __certificates_test_key_acl }}"
+          links:
+            - path: "/tmp/certificates-service/tls/50-site.crt"
+              artifact: "fullchain"
+            - path: "/tmp/certificates-service/tls/50-site.key"
+              artifact: "private_key"
+          notify:
+            - "activate test web tls"
+        __certificates_test_mail_certificate:
+          name: "19443"
+          certificate:
+            src: "{{ __certificates_test_source }}/mail.pem"
+            mode: "0640"
+          private_key:
+            src: "{{ __certificates_test_source }}/mail.key"
+            owner: "nobody"
+            mode: "0640"
+          notify:
+            - "certificates_test_service : CERTIFICATES | Restart mail TLS"
+        __certificates_test_replacement_certificate:
+          name: "18443"
+          certificate:
+            src: "{{ __certificates_test_source }}/replacement.pem"
+            acl:
+              - "user::rw-"
+              - "user:nobody:rw-"
+              - "group::r--"
+              - "other::r--"
+          chain:
+            src: "{{ __certificates_test_source }}/ca.pem"
+            acl:
+              - "user::rw-"
+              - "group::r--"
+              - "group:60027:rw-"
+              - "other::r--"
+          fullchain:
+            src: "{{ __certificates_test_source }}/replacement-fullchain.pem"
+            acl:
+              - "user::rw-"
+              - "user:60026:r--"
+              - "group::r--"
+              - "other::r--"
+          private_key:
+            src: "{{ __certificates_test_source }}/replacement.key"
+            acl: "{{ __certificates_test_key_acl }}"
+          links:
+            - path: "/tmp/certificates-service/tls/50-site.crt"
+              artifact: "fullchain"
+            - path: "/tmp/certificates-service/tls/50-site.key"
+              artifact: "private_key"
+          notify:
+            - "activate test web tls"
+        __certificates_test_public_certificates:
+          - name: "public-only"
+            certificate:
+              src: "{{ __certificates_test_source }}/mail.pem"
+            notify: []
+          - name: "additional-public"
+            certificate:
+              src: "{{ __certificates_test_source }}/web.pem"
+            notify: []
+        __certificates_test_auxiliary_certificate:
+          name: "{{ ansible_check_mode | ternary('acl-preview', 'auxiliary') }}"
+          certificate:
+            src: "{{ __certificates_test_source }}/web.pem"
+            acl:
+              - "user::rw-"
+              - "user:60026:r--"
+              - "group::r--"
+              - "other::r--"
+          notify: []
+        certificates_certificates: |-
+          {{ [__certificates_test_web_certificate, __certificates_test_mail_certificate,
+            __certificates_test_auxiliary_certificate] }}
   log: true
   playbooks:
     prepare: "../resources/playbooks/prepare.yml"

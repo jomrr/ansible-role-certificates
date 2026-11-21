@@ -2,19 +2,6 @@
 # role: certificates
 # file: tasks/main.yml
 
-- name: CERTIFICATES | Validate certificate filename stems
-  ansible.builtin.assert:
-    that:
-      - >-
-        certificates_certificates | map(attribute='name') | unique(case_sensitive=true) | length
-        == certificates_certificates | length
-      - >-
-        certificates_certificates | map(attribute='name')
-        | select('match', '^[A-Za-z0-9][A-Za-z0-9_.-]*$') | list | length
-        == certificates_certificates | length
-    fail_msg: Certificate names must be unique filename stems using ASCII letters, digits, dots, underscores or hyphens.
-    quiet: true
-
 - name: CERTIFICATES | Load platform settings
   ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __certificates_platform_files) }}"
   vars:
@@ -24,32 +11,7 @@
       paths:
         - "{{ role_path }}/vars"
 
-- name: CERTIFICATES | Validate absolute source paths
-  ansible.builtin.assert:
-    that: __certificates_artifact.src is match('^/')
-    fail_msg: "Source artifact path must be absolute: {{ __certificates_artifact.src }}"
-    quiet: true
-  loop: "{{ __certificates_artifacts }}"
-  loop_control:
-    loop_var: __certificates_artifact
-    label: "{{ __certificates_artifact.src }}"
-
-- name: CERTIFICATES | Read all artifacts from each source host
-  become: "{{ certificates_source_become }}"
-  become_user: root
-  jomrr.general.slurp_files:
-    paths: >-
-      {{ __certificates_artifacts | selectattr('source_host', 'equalto', __certificates_source_host)
-        | map(attribute='src') | unique(case_sensitive=true) | list }}
-  delegate_to: "{{ __certificates_source_host }}"
-  loop: "{{ __certificates_artifacts | map(attribute='source_host') | unique(case_sensitive=true) | list }}"
-  loop_control:
-    loop_var: __certificates_source_host
-    label: "{{ __certificates_source_host }}"
-  register: __certificates_sources
-  no_log: true
-
-- name: CERTIFICATES | Validate all candidate deployments before installation
+- name: CERTIFICATES | Validate all candidate artifacts before installation
   ansible.builtin.import_tasks: assert.yml
 
 - name: CERTIFICATES | Ensure the server certificate directory
@@ -85,5 +47,5 @@
     mode: "{{ __certificates_private_directory.stat.mode | default('0700') }}"
     setype: _default
 
-- name: CERTIFICATES | Install checked artifacts and activate changed deployments
+- name: CERTIFICATES | Install checked artifacts and activate changes
   ansible.builtin.import_tasks: install.yml

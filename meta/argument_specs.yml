@@ -15,11 +15,9 @@ argument_specs:
           name:
             type: str
             required: true
-            description: Unique filename stem starting with an ASCII letter or digit and
-              containing only ASCII letters, digits, dots, underscores or hyphens.
+            description: Unique filename stem for this certificate and its associated artifacts.
           certificate:
             type: dict
-            required: true
             options:
               src:
                 type: path
@@ -33,8 +31,15 @@ argument_specs:
                 description: File group; defaults to certificates_group.
               mode:
                 type: str
-                description: File mode; defaults to certificates_certificate_mode.
-            description: PEM leaf certificate to install.
+                description: File mode; without acl, defaults to certificates_private_key_mode
+                  for keys or certificates_certificate_mode otherwise.
+              acl:
+                type: list
+                elements: str
+                description: Complete POSIX access ACL passed unchanged to write_files;
+                  mutually exclusive with mode.
+            description: Required leaf certificate.
+            required: true
           chain:
             type: dict
             options:
@@ -50,8 +55,14 @@ argument_specs:
                 description: File group; defaults to certificates_group.
               mode:
                 type: str
-                description: File mode; defaults to certificates_certificate_mode.
-            description: Optional existing PEM issuer chain to install unchanged.
+                description: File mode; without acl, defaults to certificates_private_key_mode
+                  for keys or certificates_certificate_mode otherwise.
+              acl:
+                type: list
+                elements: str
+                description: Complete POSIX access ACL passed unchanged to write_files;
+                  mutually exclusive with mode.
+            description: Optional issuer chain.
           fullchain:
             type: dict
             options:
@@ -67,9 +78,14 @@ argument_specs:
                 description: File group; defaults to certificates_group.
               mode:
                 type: str
-                description: File mode; defaults to certificates_certificate_mode.
-            description: Optional existing PEM fullchain starting with the declared leaf
-              certificate.
+                description: File mode; without acl, defaults to certificates_private_key_mode
+                  for keys or certificates_certificate_mode otherwise.
+              acl:
+                type: list
+                elements: str
+                description: Complete POSIX access ACL passed unchanged to write_files;
+                  mutually exclusive with mode.
+            description: Optional fullchain starting with the leaf certificate.
           private_key:
             type: dict
             options:
@@ -85,18 +101,14 @@ argument_specs:
                 description: File group; defaults to certificates_group.
               mode:
                 type: str
-                description: File mode; defaults to certificates_private_key_mode.
-            description: Optional unencrypted PEM private key; its public key must match
-              before this deployment is installed.
-          notify:
-            type: list
-            elements: str
-            required: true
-            description: Explicit handler names or listen topics in this play. Use an empty
-              list when no activation is needed.
-          source_host:
-            type: str
-            description: Artifact source inventory host; defaults to certificates_source_host.
+                description: File mode; without acl, defaults to certificates_private_key_mode
+                  for keys or certificates_certificate_mode otherwise.
+              acl:
+                type: list
+                elements: str
+                description: Complete POSIX access ACL passed unchanged to write_files;
+                  mutually exclusive with mode.
+            description: Optional unencrypted private key matching the leaf certificate.
           links:
             type: list
             elements: dict
@@ -104,7 +116,7 @@ argument_specs:
               path:
                 type: path
                 required: true
-                description: Absolute symlink path in an existing service directory.
+                description: Absolute symlink path; its parent service directory must exist.
               artifact:
                 type: str
                 required: true
@@ -113,13 +125,16 @@ argument_specs:
                   - chain
                   - fullchain
                   - private_key
-                description: Declared artifact that the link targets in the platform TLS
-                  directory.
-            description: Optional service symlinks; link changes notify this deployment's
-              handlers. Parent directories must exist.
-        description: Certificates assigned to this consumer. Each entry declares source
-          artifacts, per-file permissions and explicit handlers. Platform paths and name
-          determine destinations.
+                description: Declared artifact to expose through this link.
+            description: Optional service symlinks to artifacts of this certificate.
+          notify:
+            type: list
+            elements: str
+            required: true
+            description: Handler names or listen topics for changes to this certificate,
+              its artifacts or links. An empty list disables notifications.
+        description: Certificate deployments with their directly associated artifacts and
+          service handlers.
       certificates_owner:
         type: str
         default: root
@@ -141,8 +156,8 @@ argument_specs:
       certificates_source_host:
         type: str
         required: true
-        description: Inventory host holding the existing artifacts. Each deployment may
-          override source_host.
+        description: Inventory host holding all source artifacts for this role invocation.
+          Per-entry overrides are not supported.
       certificates_source_become:
         type: bool
         default: true

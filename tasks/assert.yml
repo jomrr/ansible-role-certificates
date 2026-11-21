@@ -2,74 +2,84 @@
 # role: certificates
 # file: tasks/assert.yml
 
-- name: CERTIFICATES | Validate link targets and destinations
+- name: CERTIFICATES | Validate certificate names and declared link targets
   ansible.builtin.assert:
     that:
-      - __certificates_link.1.artifact in __certificates_link.0
-      - __certificates_link.1.path is match('^/')
-      - (__certificates_link.1.path | normpath) not in (__certificates_artifacts | map(attribute='path'))
-    fail_msg: "Invalid link {{ __certificates_link.1.path }}: use an absolute path outside installed artifacts and a declared artifact."
+      - __certificates_certificate.name is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+      - __certificates_certificate.links | default([]) | map(attribute='artifact') | difference(__certificates_certificate) | length == 0
+    fail_msg: "Invalid deployment {{ __certificates_certificate.name }}: use a filename stem and link only declared artifacts."
     quiet: true
-  loop: "{{ certificates_certificates | subelements('links', skip_missing=true) }}"
+  loop: "{{ certificates_certificates }}"
   loop_control:
-    loop_var: __certificates_link
-    label: "{{ __certificates_link.1.path }}"
+    loop_var: __certificates_certificate
+    label: "{{ __certificates_certificate.name }}"
 
-- name: CERTIFICATES | Validate unique link destinations
+- name: CERTIFICATES | Validate absolute source and link paths
+  ansible.builtin.assert:
+    that: __certificates_path is match('^/')
+    fail_msg: "Source and link paths must be absolute: {{ __certificates_path }}"
+    quiet: true
+  loop: "{{ (__certificates_artifacts | map(attribute='value.src') | list) + __certificates_link_paths }}"
+  loop_control:
+    loop_var: __certificates_path
+
+- name: CERTIFICATES | Read all artifacts from the source host
+  become: "{{ certificates_source_become }}"
+  become_user: root
+  jomrr.general.slurp_files:
+    paths: "{{ __certificates_artifacts | map(attribute='value.src') | map('normpath') | unique(case_sensitive=true) | list }}"
+  delegate_to: "{{ certificates_source_host }}"
+  register: __certificates_source
+  no_log: true
+
+- name: CERTIFICATES | Reject conflicting destinations
   ansible.builtin.assert:
     that:
-      - >-
-        certificates_certificates | subelements('links', skip_missing=true) | map(attribute='1.path')
-        | map('normpath') | unique(case_sensitive=true) | length
-        == certificates_certificates | subelements('links', skip_missing=true) | length
-    fail_msg: Link paths must be unique across certificate deployments.
+      - __certificates_files | map(attribute='path') | unique(case_sensitive=true) | length == __certificates_artifacts | length
+      - __certificates_link_paths | unique(case_sensitive=true) | length == __certificates_link_paths | length
+      - __certificates_link_paths | intersect(__certificates_files | map(attribute='path')) | length == 0
+    fail_msg: Artifact and link destinations must be unique and must not overlap.
     quiet: true
 
 - name: CERTIFICATES | Validate candidate public certificates
   ansible.builtin.assert:
-    that:
-      - >-
-        (__certificates_contents[__certificates_artifact.source_host][__certificates_artifact.src]
+    that: >-
+      (__certificates_source.content[__certificates_path | normpath]
         | b64decode | community.crypto.x509_certificate_info).public_key | length > 0
     quiet: true
-  loop: "{{ __certificates_artifacts | rejectattr('artifact', 'equalto', 'private_key') | list }}"
+  loop: "{{ __certificates_artifacts | rejectattr('key', 'equalto', 'private_key') | map(attribute='value.src') | list }}"
   loop_control:
-    loop_var: __certificates_artifact
-    label: "{{ __certificates_artifact.name }}: {{ __certificates_artifact.artifact }}"
+    loop_var: __certificates_path
 
-- name: CERTIFICATES | Match fullchain to certificate
-  ansible.builtin.assert:
-    that:
-      - >-
-        (__certificates_contents[__certificates_deployment.source_host | default(certificates_source_host)]
-          [__certificates_deployment.certificate.src | normpath]
-          | b64decode | community.crypto.x509_certificate_info).fingerprints.sha256
-        == (__certificates_contents[__certificates_deployment.source_host | default(certificates_source_host)]
-          [__certificates_deployment.fullchain.src | normpath]
-          | b64decode | community.crypto.x509_certificate_info).fingerprints.sha256
-    fail_msg: "Fullchain does not start with the certificate for {{ __certificates_deployment.name }}."
-    quiet: true
-  loop: "{{ certificates_certificates }}"
-  loop_control:
-    loop_var: __certificates_deployment
-    label: "{{ __certificates_deployment.name }}"
-  when: __certificates_deployment.fullchain is defined
+- name: CERTIFICATES | Check matching certificate artifacts
+  vars:
+    __certificates_leaf: >-
+      {{ __certificates_source.content[__certificates_certificate.certificate.src | normpath]
+        | b64decode | community.crypto.x509_certificate_info }}
+    __certificates_fullchain: >-
+      {{ __certificates_source.content[__certificates_certificate.fullchain.src | normpath]
+        | b64decode | community.crypto.x509_certificate_info }}
+    __certificates_key: >-
+      {{ __certificates_source.content[__certificates_certificate.private_key.src | normpath]
+        | b64decode | community.crypto.openssl_privatekey_info }}
+  block:
+    - name: CERTIFICATES | Match fullchain to certificate
+      ansible.builtin.assert:
+        that: __certificates_leaf.fingerprints.sha256 == __certificates_fullchain.fingerprints.sha256
+        fail_msg: "Fullchain does not start with the certificate for {{ __certificates_certificate.name }}."
+        quiet: true
+      loop: "{{ certificates_certificates | selectattr('fullchain', 'defined') | list }}"
+      loop_control:
+        loop_var: __certificates_certificate
+        label: "{{ __certificates_certificate.name }}"
 
-- name: CERTIFICATES | Match certificate to private key
-  ansible.builtin.assert:
-    that:
-      - >-
-        (__certificates_contents[__certificates_deployment.source_host | default(certificates_source_host)]
-          [__certificates_deployment.certificate.src | normpath]
-          | b64decode | community.crypto.x509_certificate_info).public_key
-        == (__certificates_contents[__certificates_deployment.source_host | default(certificates_source_host)]
-          [__certificates_deployment.private_key.src | normpath]
-          | b64decode | community.crypto.openssl_privatekey_info).public_key
-    fail_msg: "Certificate and private key do not match for {{ __certificates_deployment.name }}."
-    quiet: true
-  loop: "{{ certificates_certificates }}"
-  loop_control:
-    loop_var: __certificates_deployment
-    label: "{{ __certificates_deployment.name }}"
-  when: __certificates_deployment.private_key is defined
-  no_log: true
+    - name: CERTIFICATES | Match certificate to private key
+      ansible.builtin.assert:
+        that: __certificates_leaf.public_key == __certificates_key.public_key
+        fail_msg: "Certificate and private key do not match for {{ __certificates_certificate.name }}."
+        quiet: true
+      loop: "{{ certificates_certificates | selectattr('private_key', 'defined') | list }}"
+      loop_control:
+        loop_var: __certificates_certificate
+        label: "{{ __certificates_certificate.name }}"
+      no_log: true

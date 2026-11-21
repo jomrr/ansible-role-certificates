@@ -8,28 +8,38 @@ __certificates_suffixes:
   fullchain: -fullchain.pem
   private_key: .key
 
-# Normalize metadata for source grouping, writing and notifications.
+# Native key/value entries preserve the artifact type for batch operations.
 __certificates_artifacts: >-
-  {%- set artifacts = [] -%}
-  {%- for deployment in certificates_certificates -%}
-  {%- for artifact in deployment | dict2items if artifact.key in __certificates_suffixes -%}
-  {%- set _ = artifacts.append({
-    'name': deployment.name,
-    'artifact': artifact.key,
-    'source_host': deployment.source_host | default(certificates_source_host),
-    'src': artifact.value.src | normpath,
-    'path': ((artifact.key == 'private_key') | ternary(__certificates_private_key_directory, __certificates_certificate_directory))
-      ~ '/' ~ deployment.name ~ __certificates_suffixes[artifact.key],
-    'owner': artifact.value.owner | default(certificates_owner),
-    'group': artifact.value.group | default(certificates_group),
-    'mode': artifact.value.mode | default(
-      (artifact.key == 'private_key') | ternary(certificates_private_key_mode, certificates_certificate_mode))
+  {{ certificates_certificates | map('dict2items') | flatten
+    | selectattr('key', 'in', __certificates_suffixes) | list }}
+
+__certificates_link_paths: >-
+  {{ certificates_certificates | map(attribute='links', default=[]) | flatten
+    | map(attribute='path') | map('normpath') | list }}
+
+# The current certificate's paths are shared by links and change notifications.
+__certificates_destinations:
+  certificate: "{{ __certificates_certificate_directory }}/{{ __certificates_certificate.name }}.crt"
+  chain: "{{ __certificates_certificate_directory }}/{{ __certificates_certificate.name }}-chain.pem"
+  fullchain: "{{ __certificates_certificate_directory }}/{{ __certificates_certificate.name }}-fullchain.pem"
+  private_key: "{{ __certificates_private_key_directory }}/{{ __certificates_certificate.name }}.key"
+
+# Join the checked source bytes and file attributes for one write_files call.
+__certificates_files: >-
+  {%- set files = [] -%}
+  {%- for certificate in certificates_certificates -%}
+  {%- for kind, artifact in certificate.items() if kind in __certificates_suffixes -%}
+  {%- set private = kind == 'private_key' -%}
+  {%- set _ = files.append({
+    'path': (__certificates_private_key_directory if private else __certificates_certificate_directory)
+      ~ '/' ~ certificate.name ~ __certificates_suffixes[kind],
+    'content': __certificates_source.content[artifact.src | normpath],
+    'owner': artifact.owner | default(certificates_owner),
+    'group': artifact.group | default(certificates_group),
+    'mode': artifact.mode | default(omit if artifact.acl is defined
+      else certificates_private_key_mode if private else certificates_certificate_mode),
+    'acl': artifact.acl | default(omit)
   }) -%}
   {%- endfor -%}
   {%- endfor -%}
-  {{ artifacts }}
-
-# Keep identical source paths on different issuers separate.
-__certificates_contents: >-
-  {{ dict(__certificates_sources.results | map(attribute='__certificates_source_host')
-    | zip(__certificates_sources.results | map(attribute='content'))) }}
+  {{ files }}

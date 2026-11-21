@@ -25,6 +25,7 @@ Issuance and renewal decisions remain with the issuer.
   unencrypted private keys from a source host.
 - Distribution-standard TLS directories and per-artifact file ownership and
   permissions on consumer hosts.
+- Optional per-artifact POSIX access ACLs for named users/groups or numeric IDs.
 - Optional service symlinks to installed artifacts in directories managed by the
   consuming software.
 - Certificate/private-key public-key comparison and fullchain leaf identity
@@ -44,7 +45,7 @@ Issuance and renewal decisions remain with the issuer.
 
 ## Requirements
 
-- jomrr.general >=1.2.0 provides slurp_files and write_files for batched
+- jomrr.general >=1.3.0 provides slurp_files and write_files for batched
   artifact transfer.
 - The Python environment running Ansible on the controller needs cryptography
   for community.crypto metadata filters.
@@ -54,13 +55,15 @@ Issuance and renewal decisions remain with the issuer.
   permission to traverse the platform private-key directory.
 - Named service handlers must be loaded into the same play before certificates
   installs changed artifacts.
+- POSIX ACLs require filesystem ACL support. The role installs the acl utilities
+  only when ACL entries are configured.
 
 ## Dependencies
 
 ```yaml
 collections:
   - name: jomrr.general
-    version: '>=1.2.0'
+    version: '>=1.3.0'
   - name: community.crypto
     version: '>=3.0.0'
   - name: community.general
@@ -75,9 +78,8 @@ collections:
 
 Type: `list`. Required: `false`.
 
-Certificates assigned to this consumer. Each entry declares source artifacts,
-per-file permissions and explicit handlers. Platform paths and name determine
-destinations.
+Certificate deployments with their directly associated artifacts and service
+handlers.
 
 Default:
 
@@ -139,8 +141,8 @@ certificates_private_key_mode: '0600'
 
 Type: `str`. Required: `true`.
 
-Inventory host holding the existing artifacts. Each deployment may override
-source_host.
+Inventory host holding all source artifacts for this role invocation. Per-entry
+overrides are not supported.
 
 ### `certificates_source_become`
 
@@ -172,12 +174,13 @@ Reads source artifacts, validates candidate pairs and reports destination
 changes without installing files.
 
 - Source artifacts must already exist, including during check mode.
+- write_files predicts file and ACL changes together, including new files,
+  without changing the target.
 
 ## Service Behavior
 
-Changed artifact content, ownership, permissions or service links notify the
-explicit notify list on that certificate entry; unchanged entries do not notify
-handlers.
+Changed content, ownership, permissions, ACLs or links notify the explicit
+notify list of that certificate; unchanged certificates do not notify handlers.
 
 ### Handlers
 
@@ -207,64 +210,69 @@ handlers.
 
 ## Operational Notes
 
-- Set certificates_source_host to an inventory host containing existing
-  artifacts. A deployment may override source_host. This also supports other
-  issuers and localhost as an artifact source. Host or group variables assign
-  deployments to their consumers; no inventory group names or CA directory
-  layout are built into the role.
-- certificates_certificates is the only deployment list. Each entry requires
-  name,
-  certificate.src and notify. Optional chain, fullchain and private_key mappings
-  require
-  src and may override owner, group and mode. Source paths are absolute on the
-  source
-  host. Names are unique filename stems starting with an ASCII letter or digit
-  and
-  containing only letters, digits, dots, underscores or hyphens. Destination
-  paths
-  are derived from the platform and name; there is no separate directory list.
+- Set certificates_source_host to the inventory host containing all artifacts
+  for this role invocation. There are no per-certificate or per-artifact source
+  host overrides. This also supports other issuers and localhost as an artifact
+  source. Host or group variables assign certificate deployments to consumers.
+- certificates_certificates is a list of grouped certificate deployments. Each
+  entry requires name, certificate and notify. Optional chain, fullchain and
+  private_key mappings belong directly to that certificate. Each artifact
+  requires an absolute src path and may override owner and group and provide
+  either mode or acl. Names are unique filename stems starting with an ASCII
+  letter or digit and containing only letters, digits, dots, underscores or
+  hyphens. Platform paths and names determine destinations.
 - All deployments are read and checked before any artifact is installed. Each
   supplied private key must match the leaf certificate, and its supplied
   fullchain must start with that exact certificate. Installation uses the same
   bytes that were checked. RSA, EC and EdDSA keys are compared through their
   public keys. Without private_key, only public artifacts are installed.
-- Each consumer reads all required artifacts in one slurp_files call per
-  distinct source host and installs all artifacts in one write_files call.
-  Directory tasks, optional links and service handlers are additional calls.
-  Source paths shared within a source host are read once; identical paths on
-  different hosts remain separate.
-- Optional links entries contain path and artifact. The artifact is certificate,
-  chain, fullchain or private_key and must be declared by that deployment. Link
-  paths must be absolute, unique and different from installed artifact paths.
-  Parent directories must already exist; a missing directory fails with the link
-  path in the error. The role does not create service directories or replace
-  regular files with links. Link changes notify the deployment's handlers even
-  when certificate contents are unchanged.
+- Each consumer reads all required artifacts in one slurp_files call to
+  certificates_source_host and installs them in one write_files call. Directory
+  tasks, ACL utility installation, links and service handlers are additional
+  calls. Repeated source paths are read once.
+- Optional links is a list of path/artifact pairs on the certificate deployment.
+  Each link targets a declared certificate, chain, fullchain or private_key
+  artifact in the platform TLS directory. Link paths must be absolute, unique
+  and different from installed artifact paths. Parent directories must already
+  exist; a missing directory fails with the link path in the error. The role
+  does not create service directories or replace regular files with links. Link
+  changes notify the certificate deployment's handlers.
 - write_files replaces regular destination files atomically per file and rejects
   symbolic links at artifact destinations. Use links to expose installed
   artifacts at service-specific paths.
+- Each artifact accepts either mode or acl. The optional acl is a complete list
+  of setfacl access entries, including user::, group:: and other::. It is passed
+  unchanged to write_files, which validates and applies it. Unlisted access
+  entries are removed. Names and numeric IDs are supported; numeric IDs need no
+  local account. An explicit mask is retained; when omitted, setfacl calculates
+  it. File mode defaults apply only without acl.
+- For a root:root private key readable by UID 26, use user::rw-, user:26:r--,
+  group::--- and other::---. The owning group has no access. The resulting stat
+  mode is 0640 because its group bits represent the ACL mask, not the owning
+  group's permissions. Without acl, private keys retain the default mode 0600.
+- write_files reconciles content, ownership and ACLs together, including during
+  renewal. Its changed paths drive notifications, so ACL-only changes activate
+  only the affected deployment. Service roles manage directory traversal rights;
+  file ACLs do not grant access through private directories.
 - Issuer chains and fullchains are installed unchanged. Reading their first
   certificate checks that a PEM certificate is present; this does not verify
   chain order, trust, revocation or remaining validity. Issuance and service
   validation own those decisions.
-- The role creates the platform TLS directories without installing packages. The
-  public certificate directory is managed as root:root with mode 0755. Existing
-  private-key directory ownership and permissions are preserved; missing
-  private-key directories are created as root:root with mode 0700. Service roles
-  manage account membership and access needed to traverse those directories.
-  SUSE service certificates use /etc/ssl/servercerts because /etc/ssl/certs
-  contains the generated trust store. An empty deployment list preserves
-  previously installed certificate files.
+- The role creates the platform TLS directories. The public certificate
+  directory is managed as root:root with mode 0755. Existing private-key
+  directory ownership and permissions are preserved; missing private-key
+  directories are created as root:root with mode 0700. Service roles manage
+  account membership and access needed to traverse those directories. SUSE
+  service certificates use /etc/ssl/servercerts because /etc/ssl/certs contains
+  the generated trust store. An empty deployment list preserves previously
+  installed certificate files.
 - Use role-qualified handler names such as webserver : WEBSERVER | Activate TLS
-  configuration,
-  or a service role's documented listen topic. Load service handlers with roles,
-  import_role,
-  or a preceding include_role. Several changed files notify a shared handler
-  only once
-  at the next handler boundary. Do not flush between individual artifact
-  installations.
-  An explicit empty notify list installs files without requesting service
-  activation.
+  configuration, or a service role's documented listen topic. Load service
+  handlers with roles, import_role, or a preceding include_role. Declare notify
+  once per certificate deployment. Changes to any of its artifacts or links
+  notify that list. Repeated notifications run a shared handler once at the next
+  handler boundary. An empty notify list installs the deployment without
+  requesting service activation.
 - Run issuance and consumption as separate, ordered plays in one playbook. This
   provides a host barrier even when the consumer play uses the free strategy.
   Gate the job on issuance failure, for example with any_errors_fatal and
@@ -284,6 +292,30 @@ handlers.
 | Debian | Ubuntu | latest | [jomrr/molecule-ubuntu:latest](https://hub.docker.com/r/jomrr/molecule-ubuntu) |
 
 ## Example Playbook
+
+### Allow a numeric service user to read a root-owned key
+
+The service role grants UID 26 traversal access to the private-key directory
+and supplies the activation handler. The key stays root:root;
+the owning group has no access.
+
+```yaml
+certificates_source_host: pki01
+certificates_certificates:
+  - name: database
+    certificate:
+      src: /srv/tls/database.crt
+    private_key:
+      src: /srv/tls/database.key
+      acl:
+        - user::rw-
+        - user:26:r--
+        - group::---
+        - other::---
+    notify:
+      - activate database tls
+
+```
 
 ### Deploy files from any artifact host
 
@@ -308,6 +340,7 @@ certificates_certificates:
       group: root
       mode: '0600'
     notify: ['webserver : WEBSERVER | Activate TLS configuration']
+
 ```
 
 ### Issue with ca and distribute in one playbook
@@ -377,6 +410,7 @@ certificates_certificates:
       - path: /etc/cockpit/ws-certs.d/50-site.key
         artifact: private_key
     notify: ['activate cockpit tls']
+
 ```
 
 ### Use standard TLS paths with Samba AD DC
@@ -391,6 +425,9 @@ corresponding platform paths from Managed Files.
 
 ```yaml
 certificates_source_host: pki01
+samba_ad_dc_tls_certfile: /etc/pki/tls/certs/dc01-fullchain.pem
+samba_ad_dc_tls_keyfile: /etc/pki/tls/private/dc01.key
+samba_ad_dc_tls_cafile: /etc/pki/tls/certs/dc01-chain.pem
 certificates_certificates:
   - name: dc01
     certificate:
@@ -406,9 +443,6 @@ certificates_certificates:
       mode: '0600'
     notify: ['restart domain controller']
 
-samba_ad_dc_tls_certfile: /etc/pki/tls/certs/dc01-fullchain.pem
-samba_ad_dc_tls_keyfile: /etc/pki/tls/private/dc01.key
-samba_ad_dc_tls_cafile: /etc/pki/tls/certs/dc01-chain.pem
 ```
 
 ## References

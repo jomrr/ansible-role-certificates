@@ -2,50 +2,52 @@
 # role: certificates
 # file: defaults/main.yml
 
-# Inventory host holding the existing certificate artifacts; required.
+# Inventory host holding all source artifacts for this role invocation; required.
 # certificates_source_host: pki01
 
 # Read source artifacts as root; disable when the source account can read them.
 certificates_source_become: true
 
-# Certificates assigned to this consumer host. An empty list preserves files.
-# Each entry requires name, certificate.src and notify. The name is a unique
-# filename stem containing ASCII letters, digits, dots, underscores or hyphens.
-# Sources are absolute paths on certificates_source_host; source_host may
-# override that host for one entry. No CA credentials or issuance data is used.
+# Certificate deployments assigned to this consumer; an empty list preserves files.
+certificates_certificates: []
+# Each entry requires name, certificate and notify. Optional chain, fullchain and
+# private_key belong to that certificate. All src paths are absolute paths on
+# certificates_source_host; there are no per-certificate source host overrides.
 #
-# The platform selects the destination directories. Files are named:
+# Names are filename stems containing ASCII letters, digits, dots, underscores
+# or hyphens, starting with a letter or digit. Platform TLS directories contain:
 #   certificate: <name>.crt          private_key: <name>.key
 #   chain: <name>-chain.pem          fullchain: <name>-fullchain.pem
-# chain, fullchain and private_key are optional mappings, each requiring src.
-# Every artifact may set its own owner, group and mode. Omitted permissions use
-# the role defaults below. Private keys must be unencrypted and match the leaf.
+# Private keys must be unencrypted and match their certificate.
 #
-# Optional links is a list of {path, artifact}; artifact selects certificate,
-# chain, fullchain or private_key. Absolute link paths need existing parent
-# directories managed by their service roles. Link changes also notify services.
+# Each artifact accepts src, optional owner/group and either mode or acl.
+# acl is a complete list of setfacl access entries passed unchanged to write_files;
+# unlisted entries are removed. An omitted mask is calculated by setfacl.
+# Numeric IDs need no local account. Without acl, the mode defaults below apply.
 #
-# notify is an explicit list of service handler names or listen topics in the
-# same play. An empty list deliberately requests installation without activation.
-certificates_certificates: []
+# Optional links contains path/artifact pairs; parent service directories must exist.
+# Choices for link artifact: certificate, chain, fullchain, private_key.
+# notify lists handler names or listen topics shared by this certificate's artifacts
+# and links. An empty list requests installation without service activation.
 # certificates_certificates:
 #   - name: web01
 #     certificate:
-#       src: /etc/ssl/example/certs/web01/web01.pem
+#       src: /srv/tls/web01.pem
 #     fullchain:
-#       src: /etc/ssl/example/certs/web01/web01-fullchain.pem
+#       src: /srv/tls/web01-fullchain.pem
 #     private_key:
-#       src: /etc/ssl/example/certs/web01/web01.key
-#       owner: root
-#       group: root
-#       mode: '0600'
+#       src: /srv/tls/web01.key
+#       acl:
+#         - user::rw-
+#         - user:26:r--
+#         - group::---
+#         - other::---
 #     links:
 #       - path: /etc/cockpit/ws-certs.d/50-site.crt
 #         artifact: fullchain
 #       - path: /etc/cockpit/ws-certs.d/50-site.key
 #         artifact: private_key
-#     notify:
-#       - 'webserver : WEBSERVER | Activate TLS configuration'
+#     notify: [activate web tls]
 
 # Default file owner; each artifact may override it with owner.
 certificates_owner: root
@@ -53,8 +55,8 @@ certificates_owner: root
 # Default file group; each artifact may override it with group.
 certificates_group: root
 
-# Default public certificate, chain and fullchain mode; overridable with mode.
+# Default public artifact mode when acl is omitted; overridable with mode.
 certificates_certificate_mode: '0644'
 
-# Default private key mode; overridable with mode on the private_key mapping.
+# Default private key mode when acl is omitted; overridable with mode.
 certificates_private_key_mode: '0600'
