@@ -111,6 +111,23 @@
         loop_var: __certificates_test_issued
         label: "{{ __certificates_test_issued.__certificates_test_name }}"
 
+    - name: CERTIFICATES | Assemble certificate and key bundles on the issuer
+      delegate_to: "{{ certificates_source_host }}"
+      ansible.builtin.assemble:
+        src: "{{ __certificates_test_source }}"
+        dest: "{{ __certificates_test_source }}/{{ __certificates_test_bundle.name }}-bundle.pem"
+        regexp: "{{ __certificates_test_bundle.parts }}"
+        mode: '0600'
+      loop:
+        - {name: mail, parts: '^mail(-fullchain\.pem|\.key)$'}
+        - {name: web, parts: '^web(-fullchain\.pem|\.key)$'}
+        - {name: mismatched, parts: '^(mail-fullchain\.pem|web\.key)$'}
+      loop_control:
+        loop_var: __certificates_test_bundle
+        label: "{{ __certificates_test_bundle.name }}"
+      diff: false
+      no_log: true
+
     - name: CERTIFICATES | Create the service-owned link directory
       become: true
       become_user: root

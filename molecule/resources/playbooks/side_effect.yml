@@ -67,6 +67,30 @@
               'Fullchain does not start with the certificate' in
               (ansible_failed_result.results | map(attribute='msg') | join(' '))
 
+    - name: CERTIFICATES | Reject a bundle containing another private key
+      block:
+        - name: CERTIFICATES | Attempt to install the mismatched mail bundle
+          ansible.builtin.include_role:
+            name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+          vars:
+            certificates_certificates:
+              - name: '19443'
+                certificate:
+                  src: "{{ __certificates_test_source }}/mail.pem"
+                bundle:
+                  src: "{{ __certificates_test_source }}/mismatched-bundle.pem"
+                notify: []
+
+        - name: CERTIFICATES | Fail if the bundle was accepted
+          ansible.builtin.fail:
+            msg: Mismatched bundle was accepted.
+      rescue:
+        - name: CERTIFICATES | Verify the bundle mismatch was detected
+          ansible.builtin.assert:
+            that: >-
+              'Bundle certificate or private key does not match' in
+              (ansible_failed_result.results | map(attribute='msg') | join(' '))
+
     - name: CERTIFICATES | Verify rejected candidates preserved the installed certificate
       community.crypto.x509_certificate_info:
         path: "{{ __certificates_test_certificate_directory }}/18443.crt"

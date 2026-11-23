@@ -32,7 +32,7 @@ argument_specs:
               mode:
                 type: str
                 description: File mode; without acl, defaults to certificates_private_key_mode
-                  for keys or certificates_certificate_mode otherwise.
+                  for keys and bundles or certificates_certificate_mode otherwise.
               acl:
                 type: list
                 elements: str
@@ -56,7 +56,7 @@ argument_specs:
               mode:
                 type: str
                 description: File mode; without acl, defaults to certificates_private_key_mode
-                  for keys or certificates_certificate_mode otherwise.
+                  for keys and bundles or certificates_certificate_mode otherwise.
               acl:
                 type: list
                 elements: str
@@ -79,7 +79,7 @@ argument_specs:
               mode:
                 type: str
                 description: File mode; without acl, defaults to certificates_private_key_mode
-                  for keys or certificates_certificate_mode otherwise.
+                  for keys and bundles or certificates_certificate_mode otherwise.
               acl:
                 type: list
                 elements: str
@@ -102,13 +102,37 @@ argument_specs:
               mode:
                 type: str
                 description: File mode; without acl, defaults to certificates_private_key_mode
-                  for keys or certificates_certificate_mode otherwise.
+                  for keys and bundles or certificates_certificate_mode otherwise.
               acl:
                 type: list
                 elements: str
                 description: Complete POSIX access ACL passed unchanged to write_files;
                   mutually exclusive with mode.
             description: Optional unencrypted private key matching the leaf certificate.
+          bundle:
+            type: dict
+            options:
+              src:
+                type: path
+                required: true
+                description: Absolute artifact file path on the source host.
+              owner:
+                type: str
+                description: File owner; defaults to certificates_owner.
+              group:
+                type: str
+                description: File group; defaults to certificates_group.
+              mode:
+                type: str
+                description: File mode; without acl, defaults to certificates_private_key_mode
+                  for keys and bundles or certificates_certificate_mode otherwise.
+              acl:
+                type: list
+                elements: str
+                description: Complete POSIX access ACL passed unchanged to write_files;
+                  mutually exclusive with mode.
+            description: Optional PEM containing the leaf certificate, any intermediates
+              and its matching unencrypted private key.
           links:
             type: list
             elements: dict
@@ -125,6 +149,7 @@ argument_specs:
                   - chain
                   - fullchain
                   - private_key
+                  - bundle
                 description: Declared artifact to expose through this link.
             description: Optional service symlinks to artifacts of this certificate.
           notify:
@@ -151,8 +176,8 @@ argument_specs:
       certificates_private_key_mode:
         type: str
         default: '0600'
-        description: Default private key mode for managed resources; modes must be quoted
-          octal strings.
+        description: Default mode for private keys and bundles; modes must be quoted octal
+          strings.
       certificates_source_host:
         type: str
         required: true

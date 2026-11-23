@@ -60,6 +60,16 @@
           mode: '0640'
           owner: nobody
           group: root
+        - path: "{{ __certificates_test_key_directory }}/19443-bundle.pem"
+          src: "{{ __certificates_test_source }}/mail-bundle.pem"
+          mode: '0600'
+          owner: root
+          group: root
+        - path: "{{ __certificates_test_key_directory }}/auxiliary-bundle.pem"
+          src: "{{ __certificates_test_source }}/web-bundle.pem"
+          mode: '0640'
+          owner: root
+          group: root
       loop_control:
         loop_var: __certificates_test_resource
         label: "{{ __certificates_test_resource.path }}"
@@ -117,6 +127,8 @@
           entries: ['user:60026:r--']
         - path: "{{ __certificates_test_key_directory }}/18443.key"
           entries: ['user::rw-', 'user:26:r--', 'user:60026:r--', 'group::---', 'group:60027:r--', 'mask::r--', 'other::---']
+        - path: "{{ __certificates_test_key_directory }}/auxiliary-bundle.pem"
+          entries: ['user:60026:r--', 'group::---']
       loop_control:
         loop_var: __certificates_test_acl
         label: "{{ __certificates_test_acl.path }}"
@@ -142,6 +154,8 @@
           target: "{{ __certificates_test_certificate_directory }}/18443-fullchain.pem"
         - path: /tmp/certificates-service/tls/50-site.key
           target: "{{ __certificates_test_key_directory }}/18443.key"
+        - path: /tmp/certificates-service/tls/proxy.pem
+          target: "{{ __certificates_test_key_directory }}/19443-bundle.pem"
       loop_control:
         loop_var: __certificates_test_link
         label: "{{ __certificates_test_link.path }}"

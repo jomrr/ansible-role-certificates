@@ -91,6 +91,11 @@ provisioner:
             src: "{{ __certificates_test_source }}/mail.key"
             owner: "nobody"
             mode: "0640"
+          bundle:
+            src: "{{ __certificates_test_source }}/mail-bundle.pem"
+          links:
+            - path: "/tmp/certificates-service/tls/proxy.pem"
+              artifact: "bundle"
           notify:
             - "certificates_test_service : CERTIFICATES | Restart mail TLS"
         __certificates_test_replacement_certificate:
@@ -144,6 +149,9 @@ provisioner:
               - "user:60026:r--"
               - "group::r--"
               - "other::r--"
+          bundle:
+            src: "{{ __certificates_test_source }}/web-bundle.pem"
+            acl: "{{ __certificates_test_key_acl }}"
           notify: []
         certificates_certificates: |-
           {{ [__certificates_test_web_certificate, __certificates_test_mail_certificate,

@@ -21,8 +21,8 @@ Issuance and renewal decisions remain with the issuer.
 
 ### Managed
 
-- Transfer of leaf certificates, optional issuer chains, fullchains and
-  unencrypted private keys from a source host.
+- Transfer of leaf certificates, optional issuer chains, fullchains, unencrypted
+  private keys and combined certificate/key bundles from a source host.
 - Distribution-standard TLS directories and per-artifact file ownership and
   permissions on consumer hosts.
 - Optional per-artifact POSIX access ACLs for named users/groups or numeric IDs.
@@ -128,8 +128,7 @@ certificates_certificate_mode: '0644'
 
 Type: `str`. Required: `false`.
 
-Default private key mode for managed resources; modes must be quoted octal
-strings.
+Default mode for private keys and bundles; modes must be quoted octal strings.
 
 Default:
 
@@ -166,7 +165,7 @@ certificates_source_become: true
 - `Suse family: /etc/ssl/servercerts for public artifacts and /etc/ssl/private
   for private keys.`
 - `Filenames derived from name: <name>.crt, <name>-chain.pem,
-  <name>-fullchain.pem and <name>.key.`
+  <name>-fullchain.pem, <name>.key and <name>-bundle.pem.`
 
 ## Check Mode
 
@@ -193,8 +192,9 @@ notify list of that certificate; unchanged certificates do not notify handlers.
 
 - Private keys default to root ownership and mode 0600. Key acquisition,
   validation and copying suppress secret output and key diffs.
-- Public files default to root:root and 0644; private keys to root:root and
-  0600. Every artifact can override owner, group and mode separately.
+- Public files default to root:root and 0644; private keys and bundles to
+  root:root and 0600. Every artifact can override owner, group and mode
+  separately.
 - Artifacts travel through the controller over the configured Ansible
   connections. The role uses registered slurp results and creates no persistent
   controller staging files or cached facts. The controller must be trusted to
@@ -215,28 +215,29 @@ notify list of that certificate; unchanged certificates do not notify handlers.
   host overrides. This also supports other issuers and localhost as an artifact
   source. Host or group variables assign certificate deployments to consumers.
 - certificates_certificates is a list of grouped certificate deployments. Each
-  entry requires name, certificate and notify. Optional chain, fullchain and
-  private_key mappings belong directly to that certificate. Each artifact
-  requires an absolute src path and may override owner and group and provide
-  either mode or acl. Names are unique filename stems starting with an ASCII
-  letter or digit and containing only letters, digits, dots, underscores or
-  hyphens. Platform paths and names determine destinations.
+  entry requires name, certificate and notify. Optional chain, fullchain,
+  private_key and bundle mappings belong directly to that certificate. Each
+  artifact requires an absolute src path and may override owner and group and
+  provide either mode or acl. Names are unique filename stems starting with an
+  ASCII letter or digit and containing only letters, digits, dots, underscores
+  or hyphens. Platform paths and names determine destinations.
 - All deployments are read and checked before any artifact is installed. Each
   supplied private key must match the leaf certificate, and its supplied
   fullchain must start with that exact certificate. Installation uses the same
   bytes that were checked. RSA, EC and EdDSA keys are compared through their
-  public keys. Without private_key, only public artifacts are installed.
+  public keys. A bundle must contain that same leaf and its matching unencrypted
+  key. A separate private_key is optional.
 - Each consumer reads all required artifacts in one slurp_files call to
   certificates_source_host and installs them in one write_files call. Directory
   tasks, ACL utility installation, links and service handlers are additional
   calls. Repeated source paths are read once.
 - Optional links is a list of path/artifact pairs on the certificate deployment.
-  Each link targets a declared certificate, chain, fullchain or private_key
-  artifact in the platform TLS directory. Link paths must be absolute, unique
-  and different from installed artifact paths. Parent directories must already
-  exist; a missing directory fails with the link path in the error. The role
-  does not create service directories or replace regular files with links. Link
-  changes notify the certificate deployment's handlers.
+  Each link targets a declared certificate, chain, fullchain, private_key or
+  bundle artifact in the platform TLS directory. Link paths must be absolute,
+  unique and different from installed artifact paths. Parent directories must
+  already exist; a missing directory fails with the link path in the error. The
+  role does not create service directories or replace regular files with links.
+  Link changes notify the certificate deployment's handlers.
 - write_files replaces regular destination files atomically per file and rejects
   symbolic links at artifact destinations. Use links to expose installed
   artifacts at service-specific paths.
@@ -388,6 +389,24 @@ obtains the artifacts from pki01.
 
 ```
 
+### Install a client identity for an httpd reverse proxy
+
+Request formats: [bundle] and bundle_key_format: traditional for an
+unencrypted RSA or EC key in jomrr.ca. On Fedora, configure httpd with
+SSLProxyMachineCertificateFile /etc/pki/tls/private/proxy-bundle.pem.
+Bundles with intermediates require httpd 2.4.59 or later for this directive.
+
+```yaml
+certificates_source_host: pki01
+certificates_certificates:
+  - name: proxy
+    certificate:
+      src: /srv/tls/proxy.pem
+    bundle:
+      src: /srv/tls/proxy-bundle.pem
+    notify: [activate proxy tls]
+```
+
 ### Link certificates into Cockpit
 
 The Cockpit role creates /etc/cockpit/ws-certs.d and loads its activation
@@ -447,6 +466,7 @@ certificates_certificates:
 
 ## References
 
+- [Apache SSLProxyMachineCertificateFile](https://httpd.apache.org/docs/2.4/mod/mod_ssl.html#sslproxymachinecertificatefile)
 - [Ansible handler scope and role-qualified names](https://docs.ansible.com/projects/ansible/latest/playbook_guide/playbooks_handlers.html)
 - [X.509 certificate information](https://docs.ansible.com/projects/ansible/latest/collections/community/crypto/x509_certificate_info_module.html)
 - [Private-key information](https://docs.ansible.com/projects/ansible/latest/collections/community/crypto/openssl_privatekey_info_module.html)

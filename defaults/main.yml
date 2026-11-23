@@ -10,15 +10,17 @@ certificates_source_become: true
 
 # Certificate deployments assigned to this consumer; an empty list preserves files.
 certificates_certificates: []
-# Each entry requires name, certificate and notify. Optional chain, fullchain and
-# private_key belong to that certificate. All src paths are absolute paths on
+# Each entry requires name, certificate and notify. Optional chain, fullchain,
+# private_key and bundle belong to that certificate. All src paths are absolute paths on
 # certificates_source_host; there are no per-certificate source host overrides.
 #
 # Names are filename stems containing ASCII letters, digits, dots, underscores
 # or hyphens, starting with a letter or digit. Platform TLS directories contain:
 #   certificate: <name>.crt          private_key: <name>.key
 #   chain: <name>-chain.pem          fullchain: <name>-fullchain.pem
-# Private keys must be unencrypted and match their certificate.
+#   bundle: <name>-bundle.pem in the private key directory
+# Private keys must be unencrypted and match their certificate. A bundle contains
+# the same leaf certificate, optional intermediates and its private key.
 #
 # Each artifact accepts src, optional owner/group and either mode or acl.
 # acl is a complete list of setfacl access entries passed unchanged to write_files;
@@ -26,7 +28,7 @@ certificates_certificates: []
 # Numeric IDs need no local account. Without acl, the mode defaults below apply.
 #
 # Optional links contains path/artifact pairs; parent service directories must exist.
-# Choices for link artifact: certificate, chain, fullchain, private_key.
+# Choices for link artifact: certificate, chain, fullchain, private_key, bundle.
 # notify lists handler names or listen topics shared by this certificate's artifacts
 # and links. An empty list requests installation without service activation.
 # certificates_certificates:
@@ -58,5 +60,5 @@ certificates_group: root
 # Default public artifact mode when acl is omitted; overridable with mode.
 certificates_certificate_mode: '0644'
 
-# Default private key mode when acl is omitted; overridable with mode.
+# Default mode for private keys and bundles when acl is omitted; overridable with mode.
 certificates_private_key_mode: '0600'

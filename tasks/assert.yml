@@ -47,7 +47,7 @@
       (__certificates_source.content[__certificates_path | normpath]
         | b64decode | community.crypto.x509_certificate_info).public_key | length > 0
     quiet: true
-  loop: "{{ __certificates_artifacts | rejectattr('key', 'equalto', 'private_key') | map(attribute='value.src') | list }}"
+  loop: "{{ __certificates_artifacts | rejectattr('key', 'in', __certificates_private_artifacts) | map(attribute='value.src') | list }}"
   loop_control:
     loop_var: __certificates_path
 
@@ -79,6 +79,26 @@
         fail_msg: "Certificate and private key do not match for {{ __certificates_certificate.name }}."
         quiet: true
       loop: "{{ certificates_certificates | selectattr('private_key', 'defined') | list }}"
+      loop_control:
+        loop_var: __certificates_certificate
+        label: "{{ __certificates_certificate.name }}"
+      no_log: true
+
+    - name: CERTIFICATES | Match the bundle certificate and key to the leaf
+      ansible.builtin.assert:
+        that:
+          - __certificates_bundle_keys | length == 1
+          - >-
+            (__certificates_bundle | select('match', '^-----BEGIN CERTIFICATE-----') | first
+              | community.crypto.x509_certificate_info).fingerprints.sha256 == __certificates_leaf.fingerprints.sha256
+          - (__certificates_bundle_keys | first | community.crypto.openssl_privatekey_info).public_key == __certificates_leaf.public_key
+        fail_msg: "Bundle certificate or private key does not match the leaf for {{ __certificates_certificate.name }}."
+        quiet: true
+      vars:
+        __certificates_bundle: >-
+          {{ __certificates_source.content[__certificates_certificate.bundle.src | normpath] | b64decode | community.crypto.split_pem }}
+        __certificates_bundle_keys: "{{ __certificates_bundle | select('match', '^-----BEGIN .*PRIVATE KEY-----') | list }}"
+      loop: "{{ certificates_certificates | selectattr('bundle', 'defined') | list }}"
       loop_control:
         loop_var: __certificates_certificate
         label: "{{ __certificates_certificate.name }}"
