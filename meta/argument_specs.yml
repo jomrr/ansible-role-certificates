@@ -188,3 +188,8 @@ argument_specs:
         default: true
         description: Read source files as root. Disable when the source connection account
           can read all required artifacts.
+      certificates_source_throttle:
+        type: int
+        default: 1
+        description: Maximum number of concurrent delegated source reads in this play. Set
+          a positive integer shared by all consumers.

@@ -8,6 +8,9 @@
 # Read source artifacts as root; disable when the source account can read them.
 certificates_source_become: true
 
+# Maximum number of concurrent delegated source reads in this play, shared by all consumers.
+certificates_source_throttle: 1
+
 # Certificate deployments assigned to this consumer; an empty list preserves files.
 certificates_certificates: []
 # Each entry requires name, certificate and notify. Optional chain, fullchain,

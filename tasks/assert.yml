@@ -2,6 +2,12 @@
 # role: certificates
 # file: tasks/assert.yml
 
+- name: assert | Require a positive source read limit
+  ansible.builtin.assert:
+    that: certificates_source_throttle | int > 0
+    fail_msg: certificates_source_throttle must be a positive integer.
+    quiet: true
+
 - name: CERTIFICATES | Validate certificate names and declared link targets
   ansible.builtin.assert:
     that:
@@ -29,6 +35,7 @@
   jomrr.general.slurp_files:
     paths: "{{ __certificates_artifacts | map(attribute='value.src') | map('normpath') | unique(case_sensitive=true) | list }}"
   delegate_to: "{{ certificates_source_host }}"
+  throttle: "{{ certificates_source_throttle }}"
   register: __certificates_source
   no_log: true
 

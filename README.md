@@ -156,6 +156,19 @@ Default:
 certificates_source_become: true
 ```
 
+### `certificates_source_throttle`
+
+Type: `int`. Required: `false`.
+
+Maximum number of concurrent delegated source reads in this play. Set a positive
+integer shared by all consumers.
+
+Default:
+
+```yaml
+certificates_source_throttle: 1
+```
+
 ## Managed Files
 
 - `RedHat family: /etc/pki/tls/certs for public artifacts and
@@ -231,6 +244,10 @@ notify list of that certificate; unchanged certificates do not notify handlers.
   certificates_source_host and installs them in one write_files call. Directory
   tasks, ACL utility installation, links and service handlers are additional
   calls. Repeated source paths are read once.
+- Delegated reads run one at a time by default. To allow more parallel reads,
+  set `certificates_source_throttle` in play vars or shared group vars to a
+  positive integer within the source host's SSH capacity. The limit applies only
+  to the read task in that play.
 - Optional links is a list of path/artifact pairs on the certificate deployment.
   Each link targets a declared certificate, chain, fullchain, private_key or
   bundle artifact in the platform TLS directory. Link paths must be absolute,
